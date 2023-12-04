@@ -181,3 +181,35 @@ ggplot() +
   labs(title = "Density of Rodent Baiting") + 
   theme(legend.position = "none"))
 ```
+
+```{r}
+
+# Producing a Nearest Neighbor Analysis Between the 2021 Inspection Data and Sanitation Complaints
+
+nearest_sanitation <- st_nearest_feature(data_2021, sanitation)
+
+# Producing a Nearest Neighbor Analysis Between the 2021 Inspection Data and Rodent Baiting
+
+nearest_rodent <- st_nearest_feature(data_2021, rodent)
+
+# Adding the Results as New Columns to the 2021 Inspection Data 
+
+data_2021_with_nearest_sanitation <- cbind(data_2021, nearest_sanitation)
+
+data_2021_with_nearest_rodent <- cbind(data_2021, nearest_rodent)
+
+ggplot() +
+  geom_sf(data = chicagoboundary, fill = "grey80") +
+  geom_sf(data = data_2021_with_nearest_sanitation, aes(color = nearest_sanitation), size = 0.5) +
+  scale_color_viridis() +
+  labs(title = "Nearest Neighbors of Sanitation Code Complaints") +
+  theme_minimal()
+
+ggplot() +
+  geom_sf(data = chicagoboundary, fill = "grey80") +
+  geom_sf(data = data_2021_with_nearest_rodent, aes(color = nearest_rodent), size = 0.5) +
+  scale_color_viridis() +
+  labs(title = "Nearest Neighbors of Rodent Baiting") +
+  theme_minimal()
+
+```
