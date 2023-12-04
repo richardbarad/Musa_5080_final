@@ -8,52 +8,31 @@ output: html_document
 ```{r clear_environment, cache = TRUE, include = FALSE}
 
 # Lists All Of The Objects In The Work Space
-
 rm(list=ls())
-
 ```
 
 ```{r knitting_options, include = FALSE}
-
 # Global Options For Knitting Chunks
-
-knitr::opts_chunk$set(echo = T, cache = T, messages = F, warning = F, error = F)
-
+knitr::opts_chunk$set(echo = T, messages = F, warning = F, error = F)
 ```
 
 ```{r import_libraries, include = FALSE}
-
-# Loading In Project Specific Library Packages
-
 library(tidyverse) # Data Science Workflow & Representation
 library(tidycensus) # Load United States Census Boundary & Attribute Data
 library(sf) # Standardized Way To Encode Spatial Vector Data
 library(spdep) # Spatial Dependence: Weighting Schemes & Statistics
 library(caret) # Classification and Regression Training
-library(ckanr) # Client For The Comprehensive Knowledge Archive Network API
 library(FNN) # Fast Nearest Neighbor Search Algorithms & Applications
 library(RSocrata) # Download or Upload 'Socrata' Data Sets/Open Data Portals
 library(viridis) # Colorblind-Friendly Color Maps Package
-library(spatstat.explore) # Exploratory Data Analysis of Spatial Data
-library(raster) # Geographic Data Analysis and Modeling
-library(grid) # Grid Pattern Grobs Filling User-Defined Area
 library(gridExtra) # Miscellaneous Functions for "Grid" Graphics
 library(knitr) # General-Purpose Package for Dynamic Report Generation
 library(kableExtra) # Construct Complex Table with 'Kable' and Pipe Syntax
-library(classInt) # Choose Univariate Risk Class Intervals (KDE & ML)
-library(pscl) # Political Science Computational Laboratory: Bayesian Analysis 
 library(plotROC) # Generate Useful ROC Curve Charts for Print and Interactive Use
 library(pROC) # Display and Analyze Receiver Operating Characteristic Curves
 library(lubridate) # Functions to Work with Date-Times and Time-Spans
 library(ggpubr) # GGPLOT Based Publication Ready Plots
-library(dplyr) # A Grammar of Data Frame Manipulation, In & Out Of Memory
-library(ggplot2) # System For 'Declaratively' Creating Elegant Visualizations
 library(ggcorrplot) # Visualization of a Correlation Matrix Using GGPLOT2
-library(spatstat) # Spatial Point Pattern Analysis, Model-Fitting/Simulation/Tests
-library(raster) # Geographic Data Analysis and Modeling of Spatial Data
-library(jtools) # Analysis and Presentation of Social Scientific Data
-library(stargazer) # Well-Formatted Regression and Summary Statistics Tables
-
 ```
 
 ```{r setup, include=FALSE}
@@ -76,7 +55,7 @@ data <- read.socrata("https://data.cityofchicago.org/Health-Human-Services/Food-
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
   mutate(inspection_date = ymd(inspection_date),
          year = year(inspection_date)) %>%
-  st_transform('EPSG:3435')
+  st_transform('ESRI:102271')
 ```
 
 ## Read Neighboorhoods Data
@@ -84,7 +63,7 @@ data <- read.socrata("https://data.cityofchicago.org/Health-Human-Services/Food-
 ```{r neighboorhoods_data}
 
 neighboorhoods <- st_read('https://data.cityofchicago.org/api/geospatial/bbvz-uum9?method=export&format=GeoJSON')%>%
-  st_transform('EPSG:3435') %>%
+  st_transform('ESRI:102271') %>%
   dplyr::select(pri_neigh)
 
 ```
@@ -97,6 +76,12 @@ data_2021 <- data %>%
   st_join(.,neighboorhoods,predicate = st_intersects) %>%
   mutate(pri_neigh = ifelse(location == "(42.008536400868735, -87.91442843927047)","O'Hare",pri_neigh),
          pri_neigh = ifelse(location %in% c("(41.892249163400116, -87.60951804879336)","(41.89233780863412, -87.6040447589981)"),"Streeterville",pri_neigh))
+```
+
+## Census Wrangling
+
+```{r census_data}
+
 ```
 
 ## Including Plots
@@ -138,20 +123,10 @@ neigh_summ %>%
 
 # Alec's Code Begins Here
 
-```{r data_directory, include = FALSE}
-
-# Set Functions And Data Directory
-
-root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
-
-source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
-
-```
-
 ```{r chicago_boundary}
 
 chicagoboundary <- 
-  st_read(file.path(root.dir,"/Chapter5/chicagoBoundary.geojson")) %>%
+  st_read("https://data.cityofchicago.org/api/geospatial/ewy2-6yfk?method=export&format=GeoJSON") %>%
   st_transform('ESRI:102271')
 
 ```
@@ -190,7 +165,6 @@ rodent <- st_read("https://data.cityofchicago.org/resource/uqhs-j723.geojson")%>
 ```
 
 ```{r baiting_visualized, fig.width=9.5, fig.height=4}
-
 grid.arrange(ncol=2,
 ggplot() + 
   geom_sf(data = chicagoboundary) +
@@ -206,5 +180,4 @@ ggplot() +
   scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
   labs(title = "Density of Rodent Baiting") + 
   theme(legend.position = "none"))
-
 ```
