@@ -5,6 +5,10 @@ date: "2023-12-04"
 output: html_document
 ---
 
+To add:
+* Length of time established has been open for (based on bussiness liscence data)
+* Establishments that had previous critical or serious violations (based on historical data from 2010 - 2020)
+
 ```{r clear_environment, cache = TRUE, include = FALSE}
 
 # Lists All Of The Objects In The Work Space
@@ -80,8 +84,31 @@ data_2021 <- data %>%
 
 ## Census Wrangling
 
-```{r census_data}
+```{r census_data, results = 'hide'}
+variables = c("B17017_002", #Total Households w/ income below poverty line
+              "B17017_001", #Total Households 
+              "B02001_001", #Total Population
+               "B02001_002", #Total White Population
+               "B25058_001") #Median Rent
 
+census_data <- get_acs("block group",
+        year=2021,
+        output='wide',
+        geometry=T,
+        variables = variables,
+        state = 'IL',
+        county = 'Cook'
+        ) %>%
+  st_transform('ESRI:102271') %>%
+  select(ends_with('E'),'GEOID') %>%
+  rename(poverty = "B17017_001E",
+         below_poverty_line = "B17017_002E",
+         Total_Population = "B02001_001E",
+         White_Population = "B02001_002E",
+         Median_Rent = "B25058_001E") %>%
+  mutate(Median_Rent = ifelse(is.na(Median_Rent),median(Median_Rent,na.rm=TRUE),Median_Rent),
+         pct_white = ifelse(Total_Population == 0,0,White_Population / Total_Population * 100),
+         pct_poverty = ifelse(poverty == 0,0, below_poverty_line / poverty * 100))
 ```
 
 ## Including Plots
