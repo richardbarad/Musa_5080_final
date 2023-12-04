@@ -5,13 +5,60 @@ date: "2023-12-04"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r clear_environment, cache = TRUE, include = FALSE}
 
-library(RSocrata)
-library(tidyverse)
-library(sf)
-library(lubridate)
+# Lists All Of The Objects In The Work Space
+
+rm(list=ls())
+
+```
+
+```{r knitting_options, include = FALSE}
+
+# Global Options For Knitting Chunks
+
+knitr::opts_chunk$set(echo = T, cache = T, messages = F, warning = F, error = F)
+
+```
+
+```{r import_libraries, include = FALSE}
+
+# Loading In Project Specific Library Packages
+
+library(tidyverse) # Data Science Workflow & Representation
+library(tidycensus) # Load United States Census Boundary & Attribute Data
+library(sf) # Standardized Way To Encode Spatial Vector Data
+library(spdep) # Spatial Dependence: Weighting Schemes & Statistics
+library(caret) # Classification and Regression Training
+library(ckanr) # Client For The Comprehensive Knowledge Archive Network API
+library(FNN) # Fast Nearest Neighbor Search Algorithms & Applications
+library(RSocrata) # Download or Upload 'Socrata' Data Sets/Open Data Portals
+library(viridis) # Colorblind-Friendly Color Maps Package
+library(spatstat.explore) # Exploratory Data Analysis of Spatial Data
+library(raster) # Geographic Data Analysis and Modeling
+library(grid) # Grid Pattern Grobs Filling User-Defined Area
+library(gridExtra) # Miscellaneous Functions for "Grid" Graphics
+library(knitr) # General-Purpose Package for Dynamic Report Generation
+library(kableExtra) # Construct Complex Table with 'Kable' and Pipe Syntax
+library(classInt) # Choose Univariate Risk Class Intervals (KDE & ML)
+library(pscl) # Political Science Computational Laboratory: Bayesian Analysis 
+library(plotROC) # Generate Useful ROC Curve Charts for Print and Interactive Use
+library(pROC) # Display and Analyze Receiver Operating Characteristic Curves
+library(lubridate) # Functions to Work with Date-Times and Time-Spans
+library(ggpubr) # GGPLOT Based Publication Ready Plots
+library(dplyr) # A Grammar of Data Frame Manipulation, In & Out Of Memory
+library(ggplot2) # System For 'Declaratively' Creating Elegant Visualizations
+library(ggcorrplot) # Visualization of a Correlation Matrix Using GGPLOT2
+library(spatstat) # Spatial Point Pattern Analysis, Model-Fitting/Simulation/Tests
+library(raster) # Geographic Data Analysis and Modeling of Spatial Data
+library(jtools) # Analysis and Presentation of Social Scientific Data
+library(stargazer) # Well-Formatted Regression and Summary Statistics Tables
+
+```
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
 
 ```
 
@@ -87,4 +134,77 @@ neigh_summ %>%
   geom_bar(position='stack',stat='identity')+
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+# Alec's Code Begins Here
+
+```{r data_directory, include = FALSE}
+
+# Set Functions And Data Directory
+
+root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+```
+
+```{r chicago_boundary}
+
+chicagoboundary <- 
+  st_read(file.path(root.dir,"/Chapter5/chicagoBoundary.geojson")) %>%
+  st_transform('ESRI:102271')
+
+```
+
+```{r sanitation_complaints}
+
+sanitation <- st_read("https://data.cityofchicago.org/resource/rccf-5427.geojson") %>%
+  st_transform('ESRI:102271') 
+
+```
+
+```{r complaints_visualized, fig.width=9.5, fig.height=4}
+
+grid.arrange(ncol=2,
+ggplot() + 
+  geom_sf(data = chicagoboundary) +
+  geom_sf(data = sanitation, colour="blue", size=0.1, show.legend = "point") +
+  labs(title= "Sanitation Code Complaints"), 
+
+ggplot() + 
+  geom_sf(data = chicagoboundary, fill = "grey80") +
+  stat_density2d(data = data.frame(st_coordinates(st_centroid(sanitation))), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_viridis() +
+  scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
+  labs(title = "Density of Sanitation Code Complaints") +
+  theme(legend.position = "none"))
+```
+
+```{r rodent_baiting}
+
+rodent <- st_read("https://data.cityofchicago.org/resource/uqhs-j723.geojson")%>%
+  st_transform('ESRI:102271') 
+
+```
+
+```{r baiting_visualized, fig.width=9.5, fig.height=4}
+
+grid.arrange(ncol=2,
+ggplot() + 
+  geom_sf(data = chicagoboundary) +
+  geom_sf(data = rodent, colour="blue", size=0.1, show.legend = "point") +
+  labs(title= "Rodent Baiting"),
+
+ggplot() + 
+  geom_sf(data = chicagoboundary, fill = "grey80") +
+  stat_density2d(data = data.frame(st_coordinates(st_centroid(rodent))), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_viridis() +
+  scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
+  labs(title = "Density of Rodent Baiting") + 
+  theme(legend.position = "none"))
+
 ```
