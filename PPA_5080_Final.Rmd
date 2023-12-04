@@ -20,16 +20,17 @@ library(lubridate)
 I filtered to just restaurants and converted data to an SF object
 
 ```{r read_data}
+
+filter <- c("Restaurant","Bakery","TAVERN","ICE CREAM","ICE CREAM SHOP","GROCERY/DELI","GROCERY/RESTAURANT","RESTAURANT/BAR","RESTAURANT/GROCERY STORE","CAFE/STORE","Coffee shop","GAS STATION/RESTAURANT","GROCERY/TAQUERIA","Grocery & Restaurant","Grocery(Sushi prep)","HOT DOG STATION","JUICE AND SALAD BAR")
+
 data <- read.socrata("https://data.cityofchicago.org/Health-Human-Services/Food-Inspections/4ijn-s7e5") %>%
-  dplyr::filter(facility_type == 'Restaurant') %>%
   na.omit() %>%
+  dplyr::filter(facility_type %in% filter) %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
   mutate(inspection_date = ymd(inspection_date),
          year = year(inspection_date)) %>%
   st_transform('EPSG:3435')
 ```
-
-I figured our training data would be one year of data - this is 8,952 data points. I also removed all results which were not Pass or Fail.
 
 ## Read Neighboorhoods Data
 
@@ -40,6 +41,7 @@ neighboorhoods <- st_read('https://data.cityofchicago.org/api/geospatial/bbvz-uu
   dplyr::select(pri_neigh)
 
 ```
+I figured our training data would be one year of data - this is 9,170 data points. I also removed all results which were not Pass or Fail.
 
 ```{r training_data}
 data_2021 <- data %>%
@@ -71,7 +73,7 @@ neigh_summ <- data_2021 %>% st_drop_geometry() %>%
   
 ggplot()+
   geom_sf(data=neigh_summ,aes(fill=pct_pass))+
-  scale_fill_viridis_c(option='rocket',direction=-1)+
+  scale_fill_viridis_c(option='rocket')+
   theme_void()
 ```
 ```{r guick_chart, fig.width=14}
