@@ -1,0 +1,88 @@
+---
+title: "MUSA_Final"
+author: "Richard Barad"
+date: "2023-12-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(RSocrata)
+library(tidyverse)
+library(sf)
+library(lubridate)
+
+```
+
+## Read the data using the Socrata API
+
+I filtered to just restaurants and converted data to an SF object
+
+```{r read_data}
+data <- read.socrata("https://data.cityofchicago.org/Health-Human-Services/Food-Inspections/4ijn-s7e5") %>%
+  dplyr::filter(facility_type == 'Restaurant') %>%
+  na.omit() %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
+  mutate(inspection_date = ymd(inspection_date),
+         year = year(inspection_date)) %>%
+  st_transform('EPSG:3435')
+```
+
+I figured our training data would be one year of data - this is 8,952 data points. I also removed all results which were not Pass or Fail.
+
+## Read Neighboorhoods Data
+
+```{r neighboorhoods_data}
+
+neighboorhoods <- st_read('https://data.cityofchicago.org/api/geospatial/bbvz-uum9?method=export&format=GeoJSON')%>%
+  st_transform('EPSG:3435') %>%
+  dplyr::select(pri_neigh)
+
+```
+
+```{r training_data}
+data_2021 <- data %>%
+  dplyr::filter(year == 2021 & results != 'Out of Business' & results != 'No Entry' & results != 'Not Ready') %>%
+  mutate(results = ifelse(results=="Pass w/ Conditions","Pass",results)) %>%
+  st_join(.,neighboorhoods,predicate = st_intersects) %>%
+  mutate(pri_neigh = ifelse(location == "(42.008536400868735, -87.91442843927047)","O'Hare",pri_neigh),
+         pri_neigh = ifelse(location %in% c("(41.892249163400116, -87.60951804879336)","(41.89233780863412, -87.6040447589981)"),"Streeterville",pri_neigh))
+```
+
+## Including Plots
+
+Quick Map 1
+
+```{r guick_map}
+ggplot()+
+  geom_sf(data=neighboorhoods)+
+  geom_sf(data=data_2021,aes(color=results),size=0.5)+
+  theme_void()
+```
+```{r guick_map}
+neigh_summ <- data_2021 %>% st_drop_geometry() %>%
+  group_by(pri_neigh,results) %>% tally() %>%
+  spread(key=results,value=n) %>%
+  mutate(Fail = replace_na(Fail,0),
+    pct_pass = Pass / (Fail + Pass) * 100,
+    pct_fail = Fail / (Fail + Pass) * 100)%>%
+  left_join(neighboorhoods,.,by='pri_neigh') 
+  
+ggplot()+
+  geom_sf(data=neigh_summ,aes(fill=pct_pass))+
+  scale_fill_viridis_c(option='rocket',direction=-1)+
+  theme_void()
+```
+```{r guick_chart, fig.width=14}
+
+neigh_summ %>% 
+  st_drop_geometry() %>%
+  select(pri_neigh,pct_pass,pct_fail) %>%
+  gather(pass,rate,-pri_neigh) %>%
+  na.omit() %>%
+  ggplot(aes(x=pri_neigh,y=rate,fill=pass))+
+  geom_bar(position='stack',stat='identity')+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
