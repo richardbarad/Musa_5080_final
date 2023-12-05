@@ -6,7 +6,7 @@ output: html_document
 ---
 
 To add:
-* Length of time established has been open for (based on bussiness liscence data)
+* Length of time established has been open for (based on business liscence data)
 * Establishments that had previous critical or serious violations (based on historical data from 2010 - 2020)
 
 ```{r clear_environment, cache = TRUE, include = FALSE}
@@ -37,29 +37,38 @@ library(pROC) # Display and Analyze Receiver Operating Characteristic Curves
 library(lubridate) # Functions to Work with Date-Times and Time-Spans
 library(ggpubr) # GGPLOT Based Publication Ready Plots
 library(ggcorrplot) # Visualization of a Correlation Matrix Using GGPLOT2
-```
-
-```{r setup, include=FALSE}
-
-knitr::opts_chunk$set(echo = TRUE)
-
+library(matchmaker)
 ```
 
 ## Read the data using the Socrata API
 
 I filtered to just restaurants and converted data to an SF object
 
-```{r read_data}
 
-filter <- c("Restaurant","Bakery","TAVERN","ICE CREAM","ICE CREAM SHOP","GROCERY/DELI","GROCERY/RESTAURANT","RESTAURANT/BAR","RESTAURANT/GROCERY STORE","CAFE/STORE","Coffee shop","GAS STATION/RESTAURANT","GROCERY/TAQUERIA","Grocery & Restaurant","Grocery(Sushi prep)","HOT DOG STATION","JUICE AND SALAD BAR")
+```{r read_data}
 
 data <- read.socrata("https://data.cityofchicago.org/Health-Human-Services/Food-Inspections/4ijn-s7e5") %>%
   na.omit() %>%
-  dplyr::filter(facility_type %in% filter) %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
   mutate(inspection_date = ymd(inspection_date),
-         year = year(inspection_date)) %>%
-  st_transform('ESRI:102271')
+         year = year(inspection_date),
+         address = str_squish(address)) %>%
+  st_transform('ESRI:102271') %>%
+  mutate(facility_type = str_squish(str_to_title(facility_type)))
+
+#Clean up a bunch of messy facility names to be able to identify just restaurants
+
+data$facility_type[grepl("Restaurant", data$facility_type)] <- "Restaurant"
+data$facility_type[grepl("Bakery", data$facility_type)] <- "Bakery"
+data$facility_type[grepl("Coffee", data$facility_type)] <- "Coffee Shop"
+data$facility_type[grepl("Ice Cream", data$facility_type)] <- "Ice Cream Shop"
+data$facility_type[grepl("Deli", data$facility_type)] <- "Deli"
+data$facility_type[grepl("Taqueria", data$facility_type)] <- "Restaurant"
+data$facility_type[grepl("Hot Dog Station", data$facility_type)] <- "Restaurant"
+data$facility_type[grepl("Juice and Salad Bar", data$facility_type)] <- "Restaurant"
+
+
+data$dba_name[grepl("SEE THRU CHINESE", data$dba_name)] <- 'SEE THRU CHINESE RESTAURANT'
 ```
 
 ## Read Neighboorhoods Data
@@ -71,15 +80,110 @@ neighboorhoods <- st_read('https://data.cityofchicago.org/api/geospatial/bbvz-uu
   dplyr::select(pri_neigh)
 
 ```
+
+
 I figured our training data would be one year of data - this is 9,170 data points. I also removed all results which were not Pass or Fail.
 
 ```{r training_data}
+
+filter <- c("Restaurant","Bakery","Tavern","Ice Cream Shop","Deli","Cafe","Coffee Shop","")
+
 data_2021 <- data %>%
   dplyr::filter(year == 2021 & results != 'Out of Business' & results != 'No Entry' & results != 'Not Ready') %>%
+  dplyr::filter(facility_type %in% filter) %>%
   mutate(results = ifelse(results=="Pass w/ Conditions","Pass",results)) %>%
   st_join(.,neighboorhoods,predicate = st_intersects) %>%
   mutate(pri_neigh = ifelse(location == "(42.008536400868735, -87.91442843927047)","O'Hare",pri_neigh),
          pri_neigh = ifelse(location %in% c("(41.892249163400116, -87.60951804879336)","(41.89233780863412, -87.6040447589981)"),"Streeterville",pri_neigh))
+
+```
+
+## Try to estimate bussiness age
+
+* Establishments that had previous critical or serious violations (based on historical data from 2010 - 2020)
+
+```{r determine_age}
+
+#Download all liscences data since 2010, started in 2010 because inspection data does go back more than 10 years
+liscenses <- read.socrata("https://data.cityofchicago.org/resource/r5kz-chrr.json?$where=license_start_date%20between%20%272010-01-01T12:00:00%27%20and%20%272023-12-05T14:00:00%27")
+
+```
+
+```{r clean_data}
+
+#Doing some manual cleaning of address
+
+corrections <- data.frame(
+  bad = c("4623-4627 N BROADWAY  1 & 2", "4623-4627 N BROADWAY  1ST", "4770 W GRAND AVE 1ST", "2446 S WESTERN AVE 1", "2829 N MILWAUKEE AVE  1","8500 W BRYN MAWR AVE 1","11601 W TOUHY AVE # TERMI","4401 N SHERIDAN RD 1ST","4701 N KENMORE AVE 1","10758 S MICHIGAN AVE 1ST","2312 S WENTWORTH AVE 1ST","436-440 E 79TH ST 1ST","100 E WALTON ST 1 104"),
+  good = c("4623-4627 N BROADWAY", "4623-4627 N BROADWAY", "4770 W GRAND AVE", "2446 S WESTERN AVE", "2829 N MILWAUKEE AVE","8500 W BRYN MAWR AVE","11601 W TOUHY AVE","4401 N SHERIDAN RD","4701 N KENMORE AVE","10758 S MICHIGAN AVE","2312 S WENTWORTH AVE","436 - 440 E 79TH ST","100 E WALTON ST"),
+  stringsAsFactors = FALSE
+)
+
+
+liscenses$address <- match_vec(x=liscenses$address,corrections,from=1,to=2, quiet=TRUE)
+
+liscenses$address[grepl("11601 W TOUHY AVE", liscenses$address)] <- "11601 W TOUHY AVE" #Set Everything which contains Chicago O'hare address to just the address
+
+liscenses$address[grepl("47 W POLK ST", liscenses$address)] <- "47 W POLK ST"
+
+liscenses$address <- gsub("\\s*\\d+$", "", liscenses$address) #Remove any trailing numbers
+
+liscenses$address <- gsub("\\s*\\d+(ST)?$", "", liscenses$address) #Remove any trailing numbers which are followed by ST
+
+liscenses$address <- gsub("\\s*\\d+(st)?$", "", liscenses$address) #Remove any trailing numbers which are followed by st
+
+#Standardize some business names
+
+liscenses$doing_business_as_name[grepl("SEE THRU CHINESE", liscenses$doing_business_as_name)] <- 'SEE THRU CHINESE RESTAURANT'
+liscenses$doing_business_as_name[grepl("THE NEW VALOIS REST", liscenses$doing_business_as_name)] <- 'THE NEW VALOIS REST INC'
+
+```
+
+``` {r determine_age}
+#For each for retail establishment determine date when a license was first obtained
+liscense_min <- liscenses %>% group_by(doing_business_as_name,address) %>% summarize(min_date = min(license_start_date)) %>%
+  arrange(min_date)
+
+#Join min date back to original licence data and select subset of columns 
+
+liscenses_final <- left_join(liscenses, liscense_min , by = c('doing_business_as_name','address')) %>%
+  select(license_id, account_number,legal_name,doing_business_as_name,address,site_number,min_date) %>%
+  mutate(license_id = as.integer(license_id))
+
+#Join date business applied for first licence to 2021 inspection data - try to joins a variety of different ways since joining on licence number did not match allways
+
+data_2021_2 <- left_join(data_2021,liscenses_final %>% select(license_id,min_date),by=join_by(license_==license_id)) %>%
+  rename(min_date1 = 'min_date') %>%
+  left_join(.,liscense_min %>% select(doing_business_as_name,address,min_date),by=join_by(dba_name==doing_business_as_name,address==address),multiple='first') %>%
+  rename(min_date2 = 'min_date') %>%
+  left_join(.,liscense_min %>% select(doing_business_as_name,address,min_date),by=join_by(aka_name==doing_business_as_name,address==address),multiple='first') %>%
+  rename(min_date3 = 'min_date') %>%
+  mutate(min_date = pmin(min_date1, min_date2, min_date3, na.rm = TRUE), #Select lowest date where multiple joins worked
+         age = as.integer(difftime(inspection_date, min_date, units = 'days')))
+
+median(data_2021_2$age,na.rm=TRUE)
+
+data_2021_2 <- data_2021_2 %>%
+  mutate(age = ifelse(age<0,0,age),
+         age = ifelse(is.na(age),median(age,na.rm=TRUE),age))
+
+median(data_2021_2$age,na.rm=TRUE)
+  
+```
+
+## Estimate Number of previous violations and join
+
+```{r estimate_failures}
+
+fails <- data %>%
+  st_drop_geometry() %>%
+  dplyr::filter(year<2021 & results == 'Fail') %>%
+  group_by(dba_name,address) %>% tally() %>%
+  ungroup() %>%
+  rename(prev_fails = 'n')
+
+data_2021_2 <- left_join(data_2021_2,fails,by=join_by(dba_name==dba_name,address==address))
+
 ```
 
 ## Census Wrangling
@@ -108,20 +212,29 @@ census_data <- get_acs("block group",
          Median_Rent = "B25058_001E") %>%
   mutate(Median_Rent = ifelse(is.na(Median_Rent),median(Median_Rent,na.rm=TRUE),Median_Rent),
          pct_white = ifelse(Total_Population == 0,0,White_Population / Total_Population * 100),
-         pct_poverty = ifelse(poverty == 0,0, below_poverty_line / poverty * 100))
+         pct_poverty = ifelse(poverty == 0,0, below_poverty_line / poverty * 100)) %>%
+  select('Median_Rent','pct_white','pct_poverty','GEOID')
+```
+
+Join Census Data to restaurants data
+
+```{r join_censu_data}
+data_2021 <- data_2021 %>%
+  st_join(.,census_data,predicate = st_intersects)
 ```
 
 ## Including Plots
 
 Quick Map 1
 
-```{r guick_map}
+```{r guick_map1}
 ggplot()+
   geom_sf(data=neighboorhoods)+
   geom_sf(data=data_2021,aes(color=results),size=0.5)+
   theme_void()
 ```
-```{r guick_map}
+
+```{r guick_map2}
 neigh_summ <- data_2021 %>% st_drop_geometry() %>%
   group_by(pri_neigh,results) %>% tally() %>%
   spread(key=results,value=n) %>%
@@ -135,6 +248,7 @@ ggplot()+
   scale_fill_viridis_c(option='rocket')+
   theme_void()
 ```
+
 ```{r guick_chart, fig.width=14}
 
 neigh_summ %>% 
