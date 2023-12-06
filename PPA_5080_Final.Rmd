@@ -38,6 +38,10 @@ library(lubridate) # Functions to Work with Date-Times and Time-Spans
 library(ggpubr) # GGPLOT Based Publication Ready Plots
 library(ggcorrplot) # Visualization of a Correlation Matrix Using GGPLOT2
 library(matchmaker)
+
+# functions
+root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 ```
 
 ## Read the data using the Socrata API
@@ -52,6 +56,7 @@ data <- read.socrata("https://data.cityofchicago.org/Health-Human-Services/Food-
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
   mutate(inspection_date = ymd(inspection_date),
          year = year(inspection_date),
+         month = month(inspection_date),
          address = str_squish(address)) %>%
   st_transform('ESRI:102271') %>%
   mutate(facility_type = str_squish(str_to_title(facility_type)))
@@ -94,7 +99,8 @@ data_2021 <- data %>%
   mutate(results = ifelse(results=="Pass w/ Conditions","Pass",results)) %>%
   st_join(.,neighboorhoods,predicate = st_intersects) %>%
   mutate(pri_neigh = ifelse(location == "(42.008536400868735, -87.91442843927047)","O'Hare",pri_neigh),
-         pri_neigh = ifelse(location %in% c("(41.892249163400116, -87.60951804879336)","(41.89233780863412, -87.6040447589981)"),"Streeterville",pri_neigh))
+         pri_neigh = ifelse(location %in% c("(41.892249163400116, -87.60951804879336)","(41.89233780863412, -87.6040447589981)"),"Streeterville",pri_neigh)) %>%
+  dplyr::filter(pri_neigh != "O'Hare")
 
 ```
 
@@ -186,9 +192,10 @@ fails <- data %>%
   ungroup() %>%
   rename(prev_fails = 'n')
 
-data_2021_2 <- left_join(data_2021_2,fails,by=join_by(dba_name==dba_name,address==address))
-
-nulls <- data_2021_2 %>% dplyr::filter(is.na(min_date))
+data_2021_2 <- left_join(data_2021_2,fails,by=join_by(dba_name==dba_name,address==address)) %>%
+  mutate(prev_fails = replace_na(prev_fails,0),
+         fails_Per_year = replace_na(prev_fails/(age/365),0),
+         fails_Per_year =  ifelse(is.infinite(fails_Per_year), prev_fails, fails_Per_year))
 
 ```
 
@@ -277,12 +284,18 @@ chicagoboundary <-
   st_transform('ESRI:102271')
 
 ```
-
 ```{r sanitation_complaints}
 
-sanitation <- st_read("https://data.cityofchicago.org/resource/rccf-5427.geojson") %>%
-  st_transform('ESRI:102271') 
+sanitation <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_SHORT_CODE='SCB'")
 
+sanitation2 <- sanitation %>%
+  mutate(created_date = ymd_hms(created_date),
+         year = year(created_date)) %>%
+  dplyr::filter(year == 2020 & duplicate=='FALSE') %>%
+  dplyr::filter(!is.na(longitude)) %>%
+  dplyr::filter(!is.na(latitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
+  st_transform('ESRI:102271')
 ```
 
 ```{r complaints_visualized, fig.width=9.5, fig.height=4}
@@ -290,12 +303,12 @@ sanitation <- st_read("https://data.cityofchicago.org/resource/rccf-5427.geojson
 grid.arrange(ncol=2,
 ggplot() + 
   geom_sf(data = chicagoboundary) +
-  geom_sf(data = sanitation, colour="blue", size=0.1, show.legend = "point") +
+  geom_sf(data = sanitation2, colour="blue", size=0.1, show.legend = "point") +
   labs(title= "Sanitation Code Complaints"), 
 
 ggplot() + 
   geom_sf(data = chicagoboundary, fill = "grey80") +
-  stat_density2d(data = data.frame(st_coordinates(st_centroid(sanitation))), 
+  stat_density2d(data = data.frame(st_coordinates(st_centroid(sanitation2))), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
                  size = 0.01, bins = 40, geom = 'polygon') +
   scale_fill_viridis() +
@@ -304,23 +317,31 @@ ggplot() +
   theme(legend.position = "none"))
 ```
 
-```{r rodent_baiting}
+```{r rodents_complaints}
 
-rodent <- st_read("https://data.cityofchicago.org/resource/uqhs-j723.geojson")%>%
-  st_transform('ESRI:102271') 
+rodents <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_TYPE='Rodent%20Baiting/Rat%20Complaint'")
 
+rodents2 <- rodents %>%
+  mutate(created_date = ymd_hms(created_date),
+         year = year(created_date)) %>%
+  dplyr::filter(year == 2020 & duplicate=='FALSE') %>%
+  dplyr::filter(!is.na(longitude)) %>%
+  dplyr::filter(!is.na(latitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
+  st_transform('ESRI:102271')
 ```
+
 
 ```{r baiting_visualized, fig.width=9.5, fig.height=4}
 grid.arrange(ncol=2,
 ggplot() + 
   geom_sf(data = chicagoboundary) +
-  geom_sf(data = rodent, colour="blue", size=0.1, show.legend = "point") +
+  geom_sf(data = rodents2, colour="blue", size=0.1, show.legend = "point") +
   labs(title= "Rodent Baiting"),
 
 ggplot() + 
   geom_sf(data = chicagoboundary, fill = "grey80") +
-  stat_density2d(data = data.frame(st_coordinates(st_centroid(rodent))), 
+  stat_density2d(data = data.frame(st_coordinates(st_centroid(rodents2))), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
                  size = 0.01, bins = 40, geom = 'polygon') +
   scale_fill_viridis() +
@@ -330,33 +351,51 @@ ggplot() +
 ```
 
 ```{r}
+# Producing a Nearest Neighbor Analysis Between the 2021 Inspection Data and 2020 Sanitation Complaints and 2020 Rodent Reports
 
-# Producing a Nearest Neighbor Analysis Between the 2021 Inspection Data and Sanitation Complaints
+data_2021_2 <- data_2021_2 %>%
+    mutate(rodents.nn = nn_function(st_coordinates(data_2021_2), 
+                                    st_coordinates(rodents2),
+                                           k = 50),
+           log_rodents.nn = log(rodents.nn),
+           sanitation.nn = nn_function(st_coordinates(data_2021_2), 
+                                    st_coordinates(sanitation2),
+                                           k = 50),
+           log_sanitation.nn = log(sanitation.nn))
 
-nearest_sanitation <- st_nearest_feature(data_2021, sanitation)
-
-# Producing a Nearest Neighbor Analysis Between the 2021 Inspection Data and Rodent Baiting
-
-nearest_rodent <- st_nearest_feature(data_2021, rodent)
-
-# Adding the Results as New Columns to the 2021 Inspection Data 
-
-data_2021_with_nearest_sanitation <- cbind(data_2021, nearest_sanitation)
-
-data_2021_with_nearest_rodent <- cbind(data_2021, nearest_rodent)
-
+grid.arrange(ncol=2,
+  
 ggplot() +
   geom_sf(data = chicagoboundary, fill = "grey80") +
-  geom_sf(data = data_2021_with_nearest_sanitation, aes(color = nearest_sanitation), size = 0.5) +
+  geom_sf(data = data_2021_2, aes(color = rodents.nn), size = 0.5) +
   scale_color_viridis() +
   labs(title = "Nearest Neighbors of Sanitation Code Complaints") +
-  theme_minimal()
+  theme_minimal(),
 
 ggplot() +
   geom_sf(data = chicagoboundary, fill = "grey80") +
-  geom_sf(data = data_2021_with_nearest_rodent, aes(color = nearest_rodent), size = 0.5) +
+  geom_sf(data = data_2021_2, aes(color = sanitation.nn), size = 0.5) +
   scale_color_viridis() +
   labs(title = "Nearest Neighbors of Rodent Baiting") +
   theme_minimal()
-
+)
 ```
+
+```{r examine_means}
+# Look at the means for each continuous variable
+
+data_2021_2_means <- data_2021_2 %>%
+  st_drop_geometry() %>%
+  group_by(results) %>% summarize_at(vars("age","prev_fails","Median_Rent","pct_white","pct_poverty","rodents.nn","sanitation.nn","fails_Per_year"),mean,na.rm=TRUE) %>%
+  gather(key='variable',value='mean',-results)
+
+ggplot(data=data_2021_2_means,aes(x=results,y=mean,fill=results))+
+  geom_bar(stat='identity')+
+  facet_wrap(~variable,scales = "free")+
+  scale_fill_manual(values=c('orange','lightgreen'),name='Pass Inspection')+
+  labs(x="Pass Inspection", y="Mean Value", 
+      title = "Feature associations with likelihood of passing inspection")+
+  theme_bw()
+```
+
+
