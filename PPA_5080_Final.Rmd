@@ -5,11 +5,7 @@ date: "2023-12-04"
 output: html_document
 ---
 
-To add:
-* Length of time established has been open for (based on business liscence data)
-* Establishments that had previous critical or serious violations (based on historical data from 2010 - 2020)
-
-```{r clear_environment, cache = TRUE, include = FALSE}
+```{r clear_environment, include=FALSE}
 
 # Lists All Of The Objects In The Work Space
 rm(list=ls())
@@ -36,8 +32,8 @@ library(plotROC) # Generate Useful ROC Curve Charts for Print and Interactive Us
 library(pROC) # Display and Analyze Receiver Operating Characteristic Curves
 library(lubridate) # Functions to Work with Date-Times and Time-Spans
 library(ggpubr) # GGPLOT Based Publication Ready Plots
-library(ggcorrplot) # Visualization of a Correlation Matrix Using GGPLOT2
 library(matchmaker)
+library(corrr) #For correlation Matrix
 
 # functions
 root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
@@ -49,7 +45,9 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 I filtered to just restaurants and converted data to an SF object
 
 
-```{r read_data}
+```{r read_data, cache=TRUE}
+
+#Read data from city of Chicago on inspections - we need all data is read in (we need all data since we look at historical failures)
 
 data <- read.socrata("https://data.cityofchicago.org/Health-Human-Services/Food-Inspections/4ijn-s7e5") %>%
   na.omit() %>%
@@ -61,7 +59,7 @@ data <- read.socrata("https://data.cityofchicago.org/Health-Human-Services/Food-
   st_transform('ESRI:102271') %>%
   mutate(facility_type = str_squish(str_to_title(facility_type)))
 
-#Clean up a bunch of messy facility names to be able to identify just facilities of interest
+#Clean up a bunch of messy facility names to be able to identify just facilities of (i.e: restaurants, cafes,and bakeries)
 
 data$facility_type[grepl("Restaurant", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Bakery", data$facility_type)] <- "Bakery"
@@ -71,6 +69,8 @@ data$facility_type[grepl("Deli", data$facility_type)] <- "Deli"
 data$facility_type[grepl("Taqueria", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Hot Dog Station", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Juice and Salad Bar", data$facility_type)] <- "Restaurant"
+
+#Standardize some names of bussinesses
 
 data$dba_name[grepl("SEE THRU CHINESE", data$dba_name)] <- 'SEE THRU CHINESE RESTAURANT'
 data$dba_name[grepl("JAMAICAN  GATES", data$dba_name)] <- 'JAMAICAN GATES'
@@ -87,7 +87,7 @@ neighboorhoods <- st_read('https://data.cityofchicago.org/api/geospatial/bbvz-uu
 ```
 
 
-I figured our training data would be one year of data - this is 9,185 data points. I also removed all results which were not Pass or Fail.
+I figured our training data would be one year of data - this is 9,185 data points. I also removed all results which were not Pass or Fail. Also filtered to just restaurants which are the type of bussinesses we are interested in. 
 
 ```{r training_data}
 
@@ -96,7 +96,8 @@ filter <- c("Restaurant","Bakery","Tavern","Ice Cream Shop","Deli","Cafe","Coffe
 data_2021 <- data %>%
   dplyr::filter(year == 2021 & results != 'Out of Business' & results != 'No Entry' & results != 'Not Ready') %>%
   dplyr::filter(facility_type %in% filter) %>%
-  mutate(results = ifelse(results=="Pass w/ Conditions","Pass",results)) %>%
+  mutate(results = ifelse(results=="Pass w/ Conditions","Pass",results),
+         fail = ifelse(results=="Fail",1,0)) %>%
   st_join(.,neighboorhoods,predicate = st_intersects) %>%
   mutate(pri_neigh = ifelse(location == "(42.008536400868735, -87.91442843927047)","O'Hare",pri_neigh),
          pri_neigh = ifelse(location %in% c("(41.892249163400116, -87.60951804879336)","(41.89233780863412, -87.6040447589981)"),"Streeterville",pri_neigh)) %>%
@@ -106,15 +107,17 @@ data_2021 <- data %>%
 
 ## Try to estimate bussiness age
 
-* Establishments that had previous critical or serious violations (based on historical data from 2010 - 2020)
+Download all bussiness liscences going back to 2010.
 
-```{r download_liscenses}
+```{r download_liscenses, cache=TRUE}
 
 #Download all liscences data since 2010, started in 2010 because inspection data does not go back more than 10 years
 
-liscenses <- read.socrata("https://data.cityofchicago.org/resource/r5kz-chrr.json?$where=license_start_date%20between%20%272010-01-01T12:00:00%27%20and%20%272023-12-05T14:00:00%27")
+liscenses <- read.socrata("https://data.cityofchicago.org/resource/r5kz-chrr.json?$where=license_start_date%20between%20%272010-01-01T12:00:00%27%20and%20%272021-12-31T14:00:00%27")
 
 ```
+
+This code is all cleaning the bussiness liscence data, to ensure that addresses match across the bussiness liscence data and inspections data since we join the two together. Matching on the liscence_id often did not work!
 
 ```{r clean_data}
 
@@ -148,6 +151,8 @@ liscenses$doing_business_as_name[grepl("EL CHILE RESTAURANT & PANCAKE HOUSE.", l
 liscenses$doing_business_as_name[grepl("FRANCES' DELI & BRUNCHERY", liscenses$doing_business_as_name)] <- "FRANCES' REST & BRUNCHERY"
 
 ```
+
+This code determines the age of each business, based on what the business requested it first business liscence. Age is estiamted in days - max age should be around 365 * 11 since we only downloaded liscence data back to 2010 (11 years because we only focus on 2010).
 
 ``` {r determine_age}
 #For each for retail establishment determine date when a license was first obtained
@@ -183,6 +188,8 @@ median(data_2021_2$age,na.rm=TRUE)
 
 ## Estimate Number of previous violations and join
 
+This code estimates the number of previous violations at each bussiness.
+
 ```{r estimate_failures}
 
 fails <- data %>%
@@ -200,6 +207,8 @@ data_2021_2 <- left_join(data_2021_2,fails,by=join_by(dba_name==dba_name,address
 ```
 
 ## Census Wrangling
+
+Wrangle and download census data on percent white population, percent poverty, and median rent by census block.
 
 ```{r census_data, results = 'hide'}
 variables = c("B17017_002", #Total Households w/ income below poverty line
@@ -224,12 +233,12 @@ census_data <- get_acs("block group",
          White_Population = "B02001_002E",
          Median_Rent = "B25058_001E") %>%
   mutate(Median_Rent = ifelse(is.na(Median_Rent),median(Median_Rent,na.rm=TRUE),Median_Rent),
-         pct_white = ifelse(Total_Population == 0,0,White_Population / Total_Population * 100),
+         pct_non_white = 100 - ifelse(Total_Population == 0,0,White_Population / Total_Population * 100),
          pct_poverty = ifelse(poverty == 0,0, below_poverty_line / poverty * 100)) %>%
-  select('Median_Rent','pct_white','pct_poverty','GEOID')
+  select('Median_Rent','pct_non_white','pct_poverty','GEOID')
 ```
 
-Join Census Data to restaurants data
+Spatial join census data to restaurants data
 
 ```{r join_censu_data}
 data_2021_2 <- data_2021_2 %>%
@@ -284,7 +293,7 @@ chicagoboundary <-
   st_transform('ESRI:102271')
 
 ```
-```{r sanitation_complaints}
+```{r sanitation_complaints, cache=TRUE}
 
 sanitation <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_SHORT_CODE='SCB'")
 
@@ -317,7 +326,7 @@ ggplot() +
   theme(legend.position = "none"))
 ```
 
-```{r rodents_complaints}
+```{r rodents_complaints, cache=TRUE}
 
 rodents <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_TYPE='Rodent%20Baiting/Rat%20Complaint'")
 
@@ -350,8 +359,11 @@ ggplot() +
   theme(legend.position = "none"))
 ```
 
-```{r}
+Look at 50 nearest points since the point density is so high. 
+
+```{r, nearest_neighboor_analysis, fig.width=9.5, fig.height=4}
 # Producing a Nearest Neighbor Analysis Between the 2021 Inspection Data and 2020 Sanitation Complaints and 2020 Rodent Reports
+
 
 data_2021_2 <- data_2021_2 %>%
     mutate(rodents.nn = nn_function(st_coordinates(data_2021_2), 
@@ -363,39 +375,81 @@ data_2021_2 <- data_2021_2 %>%
                                            k = 50),
            log_sanitation.nn = log(sanitation.nn))
 
+my_breaks = c(50,100, 250, 500, 1000, 2000)
+
 grid.arrange(ncol=2,
   
 ggplot() +
   geom_sf(data = chicagoboundary, fill = "grey80") +
   geom_sf(data = data_2021_2, aes(color = rodents.nn), size = 0.5) +
-  scale_color_viridis() +
+  scale_color_viridis_c(name = "count", trans = "log",breaks = my_breaks, labels = my_breaks)+
   labs(title = "Nearest Neighbors of Sanitation Code Complaints") +
   theme_minimal(),
 
 ggplot() +
   geom_sf(data = chicagoboundary, fill = "grey80") +
   geom_sf(data = data_2021_2, aes(color = sanitation.nn), size = 0.5) +
-  scale_color_viridis() +
+  scale_color_viridis_c(name = "count", trans = "log",breaks = my_breaks, labels = my_breaks)+
   labs(title = "Nearest Neighbors of Rodent Baiting") +
   theme_minimal()
 )
 ```
 
-```{r examine_means}
-# Look at the means for each continuous variable
+# Explore Predictors
+
+```{r examine_means,fig.width=10,fig.height=4}
+
+# Look at the means for each continuous predictor
 
 data_2021_2_means <- data_2021_2 %>%
   st_drop_geometry() %>%
-  group_by(results) %>% summarize_at(vars("age","prev_fails","Median_Rent","pct_white","pct_poverty","rodents.nn","sanitation.nn","fails_Per_year"),mean,na.rm=TRUE) %>%
-  gather(key='variable',value='mean',-results)
+  group_by(results) %>% summarize_at(vars("age","prev_fails","Median_Rent","pct_non_white","pct_poverty","rodents.nn","sanitation.nn","fails_Per_year"),mean,na.rm=TRUE) 
 
-ggplot(data=data_2021_2_means,aes(x=results,y=mean,fill=results))+
+
+data_2021_2_means %>%
+  gather(key='variable',value='mean',-results) %>%
+  ggplot(aes(x=results,y=mean,fill=results))+
   geom_bar(stat='identity')+
-  facet_wrap(~variable,scales = "free")+
+  facet_wrap(~variable,scales = "free",nrow=2)+
   scale_fill_manual(values=c('orange','lightgreen'),name='Pass Inspection')+
   labs(x="Pass Inspection", y="Mean Value", 
       title = "Feature associations with likelihood of passing inspection")+
   theme_bw()
 ```
+```{r table_means}
 
+#"age","prev_fails","Median_Rent","pct_white","pct_poverty","rodents.nn","sanitation.nn","fails_Per_year"
 
+t_age <- t.test(data_2021_2$age~data_2021_2$fail)$p.value
+t_prev_fails <- t.test(data_2021_2$prev_fails~data_2021_2$fail)$p.value
+t_pct_non_white <- t.test(data_2021_2$pct_non_white~data_2021_2$fail)$p.value
+t_pct_poverty <- t.test(data_2021_2$pct_poverty~data_2021_2$fail)$p.value
+t_Median_Rent <- t.test(data_2021_2$Median_Rent~data_2021_2$fail)$p.value
+t_rodents.nn <- t.test(data_2021_2$rodents.nn~data_2021_2$fail)$p.value
+t_sanitation.nn <- t.test(data_2021_2$sanitation.nn~data_2021_2$fail)$p.value
+t_fails_per_year <- t.test(data_2021_2$fails_Per_year~data_2021_2$fail)$p.value
+
+p_values = c(t_age,t_fails_per_year,t_Median_Rent,t_pct_non_white,t_pct_poverty,t_prev_fails,t_rodents.nn,t_sanitation.nn)
+
+data_2021_2_means %>%
+  gather('variable','value',-results) %>%
+  spread('results','value') %>%
+  cbind(.,p_values) %>%
+  kbl(col.names=c('Variables','Fail (Mean)','Pass (Mean)','t-test (p-value)')) %>%
+  kable_classic_2()
+  
+```
+
+# Check Correlations
+
+Check correlation between predictors
+
+```{r correlation_matrix}
+
+data_2021_2 %>% dplyr::select(age,prev_fails,Median_Rent,pct_non_white,pct_poverty,rodents.nn,sanitation.nn,fails_Per_year) %>%
+  st_drop_geometry() %>%
+  correlate() %>% 
+  autoplot() +
+  geom_text(aes(label = round(r,digits=2)),size = 3)
+
+```
