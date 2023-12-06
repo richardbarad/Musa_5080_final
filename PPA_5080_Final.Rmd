@@ -382,14 +382,14 @@ grid.arrange(ncol=2,
 ggplot() +
   geom_sf(data = chicagoboundary, fill = "grey80") +
   geom_sf(data = data_2021_2, aes(color = rodents.nn), size = 0.5) +
-  scale_color_viridis_c(name = "count", trans = "log",breaks = my_breaks, labels = my_breaks)+
+  scale_color_viridis_c(name = "distance", trans = "log",breaks = my_breaks, labels = my_breaks)+
   labs(title = "Nearest Neighbors of Sanitation Code Complaints") +
   theme_minimal(),
 
 ggplot() +
   geom_sf(data = chicagoboundary, fill = "grey80") +
   geom_sf(data = data_2021_2, aes(color = sanitation.nn), size = 0.5) +
-  scale_color_viridis_c(name = "count", trans = "log",breaks = my_breaks, labels = my_breaks)+
+  scale_color_viridis_c(name = "distance", trans = "log",breaks = my_breaks, labels = my_breaks)+
   labs(title = "Nearest Neighbors of Rodent Baiting") +
   theme_minimal()
 )
