@@ -56,7 +56,7 @@ data <- read.socrata("https://data.cityofchicago.org/Health-Human-Services/Food-
   st_transform('ESRI:102271') %>%
   mutate(facility_type = str_squish(str_to_title(facility_type)))
 
-#Clean up a bunch of messy facility names to be able to identify just restaurants
+#Clean up a bunch of messy facility names to be able to identify just facilities of interest
 
 data$facility_type[grepl("Restaurant", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Bakery", data$facility_type)] <- "Bakery"
@@ -67,8 +67,8 @@ data$facility_type[grepl("Taqueria", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Hot Dog Station", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Juice and Salad Bar", data$facility_type)] <- "Restaurant"
 
-
 data$dba_name[grepl("SEE THRU CHINESE", data$dba_name)] <- 'SEE THRU CHINESE RESTAURANT'
+data$dba_name[grepl("JAMAICAN  GATES", data$dba_name)] <- 'JAMAICAN GATES'
 ```
 
 ## Read Neighboorhoods Data
@@ -82,7 +82,7 @@ neighboorhoods <- st_read('https://data.cityofchicago.org/api/geospatial/bbvz-uu
 ```
 
 
-I figured our training data would be one year of data - this is 9,170 data points. I also removed all results which were not Pass or Fail.
+I figured our training data would be one year of data - this is 9,185 data points. I also removed all results which were not Pass or Fail.
 
 ```{r training_data}
 
@@ -102,9 +102,10 @@ data_2021 <- data %>%
 
 * Establishments that had previous critical or serious violations (based on historical data from 2010 - 2020)
 
-```{r determine_age}
+```{r download_liscenses}
 
-#Download all liscences data since 2010, started in 2010 because inspection data does go back more than 10 years
+#Download all liscences data since 2010, started in 2010 because inspection data does not go back more than 10 years
+
 liscenses <- read.socrata("https://data.cityofchicago.org/resource/r5kz-chrr.json?$where=license_start_date%20between%20%272010-01-01T12:00:00%27%20and%20%272023-12-05T14:00:00%27")
 
 ```
@@ -114,11 +115,10 @@ liscenses <- read.socrata("https://data.cityofchicago.org/resource/r5kz-chrr.jso
 #Doing some manual cleaning of address
 
 corrections <- data.frame(
-  bad = c("4623-4627 N BROADWAY  1 & 2", "4623-4627 N BROADWAY  1ST", "4770 W GRAND AVE 1ST", "2446 S WESTERN AVE 1", "2829 N MILWAUKEE AVE  1","8500 W BRYN MAWR AVE 1","11601 W TOUHY AVE # TERMI","4401 N SHERIDAN RD 1ST","4701 N KENMORE AVE 1","10758 S MICHIGAN AVE 1ST","2312 S WENTWORTH AVE 1ST","436-440 E 79TH ST 1ST","100 E WALTON ST 1 104"),
-  good = c("4623-4627 N BROADWAY", "4623-4627 N BROADWAY", "4770 W GRAND AVE", "2446 S WESTERN AVE", "2829 N MILWAUKEE AVE","8500 W BRYN MAWR AVE","11601 W TOUHY AVE","4401 N SHERIDAN RD","4701 N KENMORE AVE","10758 S MICHIGAN AVE","2312 S WENTWORTH AVE","436 - 440 E 79TH ST","100 E WALTON ST"),
+  bad = c("4623-4627 N BROADWAY  1 & 2","100 E WALTON ST 1 104","436-440 E 79TH ST","1733 W 87TH ST 1ST FLOOR","163 E WALTON ST 2ND F","5640 S UNIVERSITY AVE","5255 W MADISON ST 1 B","111 E 51ST ST 1ST`"),
+  good = c("4623-4627 N BROADWAY", "100 E WALTON ST","436 - 440 E 79TH ST","1733 W 87TH ST","163 E WALTON ST","5640 S UNIVERSITY","5255 W MADISON ST","111 E 51ST ST 1ST"),
   stringsAsFactors = FALSE
 )
-
 
 liscenses$address <- match_vec(x=liscenses$address,corrections,from=1,to=2, quiet=TRUE)
 
@@ -136,6 +136,10 @@ liscenses$address <- gsub("\\s*\\d+(st)?$", "", liscenses$address) #Remove any t
 
 liscenses$doing_business_as_name[grepl("SEE THRU CHINESE", liscenses$doing_business_as_name)] <- 'SEE THRU CHINESE RESTAURANT'
 liscenses$doing_business_as_name[grepl("THE NEW VALOIS REST", liscenses$doing_business_as_name)] <- 'THE NEW VALOIS REST INC'
+liscenses$doing_business_as_name[grepl("CHICAGO MARRIOTT DOWNTOWN", liscenses$doing_business_as_name)] <- 'CHICAGO DOWNTOWN MARRIOTT'
+liscenses$doing_business_as_name[grepl("STAR OF SIAM", liscenses$doing_business_as_name)] <- 'STAR OF SIAM'
+liscenses$doing_business_as_name[grepl("EL CHILE RESTAURANT & PANCAKE HOUSE.", liscenses$doing_business_as_name)] <- 'EL CHILE RESTAURANT & PANCAKE HOUSE'
+liscenses$doing_business_as_name[grepl("FRANCES' DELI & BRUNCHERY", liscenses$doing_business_as_name)] <- "FRANCES' REST & BRUNCHERY"
 
 ```
 
@@ -184,6 +188,8 @@ fails <- data %>%
 
 data_2021_2 <- left_join(data_2021_2,fails,by=join_by(dba_name==dba_name,address==address))
 
+nulls <- data_2021_2 %>% dplyr::filter(is.na(min_date))
+
 ```
 
 ## Census Wrangling
@@ -219,7 +225,7 @@ census_data <- get_acs("block group",
 Join Census Data to restaurants data
 
 ```{r join_censu_data}
-data_2021 <- data_2021 %>%
+data_2021_2 <- data_2021_2 %>%
   st_join(.,census_data,predicate = st_intersects)
 ```
 
