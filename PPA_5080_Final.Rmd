@@ -34,6 +34,7 @@ library(lubridate) # Functions to Work with Date-Times and Time-Spans
 library(ggpubr) # GGPLOT Based Publication Ready Plots
 library(matchmaker)
 library(corrr) #For correlation Matrix
+library(RColorBrewer)
 
 # functions
 root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
@@ -250,10 +251,16 @@ data_2021_2 <- data_2021_2 %>%
 Quick Map 1
 
 ```{r guick_map1}
-ggplot()+
-  geom_sf(data=neighboorhoods)+
-  geom_sf(data=data_2021,aes(color=results),size=0.5)+
+
+
+custom_colors <- c("Pass" = "#41B6E6", "Fail" = "#E4002B")
+
+ggplot() +
+  geom_sf(data = neighboorhoods) +
+  geom_sf(data = data_2021, aes(color = results), size = 0.5) +
+  scale_color_manual(values = custom_colors) +
   theme_void()
+
 ```
 
 ```{r guick_map2}
@@ -265,9 +272,9 @@ neigh_summ <- data_2021 %>% st_drop_geometry() %>%
     pct_fail = Fail / (Fail + Pass) * 100)%>%
   left_join(neighboorhoods,.,by='pri_neigh') 
   
-ggplot()+
-  geom_sf(data=neigh_summ,aes(fill=pct_pass))+
-  scale_fill_viridis_c(option='rocket')+
+ggplot() +
+  geom_sf(data = neigh_summ, aes(fill = pct_pass)) +
+  scale_fill_distiller(palette = "Blues") +
   theme_void()
 ```
 
@@ -309,18 +316,19 @@ sanitation2 <- sanitation %>%
 
 ```{r complaints_visualized, fig.width=9.5, fig.height=4}
 
-grid.arrange(ncol=2,
-ggplot() + 
-  geom_sf(data = chicagoboundary) +
-  geom_sf(data = sanitation2, colour="blue", size=0.1, show.legend = "point") +
-  labs(title= "Sanitation Code Complaints"), 
+grid.arrange(
+  ncol = 2,
+  ggplot() + 
+    geom_sf(data = chicagoboundary) +
+    geom_sf(data = sanitation2, colour = "#41B6E6", size = 0.1, show.legend = "point") +
+    labs(title = "Sanitation Code Complaints"), 
 
-ggplot() + 
-  geom_sf(data = chicagoboundary, fill = "grey80") +
+  ggplot() + 
+  geom_sf(data = chicagoboundary, fill = "#FFFFFF") +
   stat_density2d(data = data.frame(st_coordinates(st_centroid(sanitation2))), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
                  size = 0.01, bins = 40, geom = 'polygon') +
-  scale_fill_viridis() +
+  scale_fill_distiller(palette = "RdBu") +
   scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
   labs(title = "Density of Sanitation Code Complaints") +
   theme(legend.position = "none"))
@@ -345,15 +353,15 @@ rodents2 <- rodents %>%
 grid.arrange(ncol=2,
 ggplot() + 
   geom_sf(data = chicagoboundary) +
-  geom_sf(data = rodents2, colour="blue", size=0.1, show.legend = "point") +
+  geom_sf(data = rodents2, colour="#41B6E6", size=0.1, show.legend = "point") +
   labs(title= "Rodent Baiting"),
 
 ggplot() + 
-  geom_sf(data = chicagoboundary, fill = "grey80") +
+  geom_sf(data = chicagoboundary, fill = "#FFFFFF") +
   stat_density2d(data = data.frame(st_coordinates(st_centroid(rodents2))), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
                  size = 0.01, bins = 40, geom = 'polygon') +
-  scale_fill_viridis() +
+  scale_fill_distiller(palette = "RdBu") +
   scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
   labs(title = "Density of Rodent Baiting") + 
   theme(legend.position = "none"))
@@ -397,7 +405,7 @@ ggplot() +
 
 # Explore Predictors
 
-```{r examine_means,fig.width=10,fig.height=4}
+```{r examine_means,fig.width=10,fig.height=3}
 
 # Look at the means for each continuous predictor
 
@@ -411,11 +419,13 @@ data_2021_2_means %>%
   ggplot(aes(x=results,y=mean,fill=results))+
   geom_bar(stat='identity')+
   facet_wrap(~variable,scales = "free",nrow=2)+
-  scale_fill_manual(values=c('orange','lightgreen'),name='Pass Inspection')+
+  scale_fill_manual(values=c("#E4002B","#41B6E6"),name='Pass Inspection')+
   labs(x="Pass Inspection", y="Mean Value", 
       title = "Feature associations with likelihood of passing inspection")+
   theme_bw()
+
 ```
+
 ```{r table_means}
 
 #"age","prev_fails","Median_Rent","pct_white","pct_poverty","rodents.nn","sanitation.nn","fails_Per_year"
