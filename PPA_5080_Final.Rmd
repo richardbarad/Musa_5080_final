@@ -563,6 +563,24 @@ data_2021_2 %>% dplyr::select(quant_predictors) %>%
 
 ```
 
+# Alec Is Working On This - Not Running/Complete Yet
+
+```{r}
+
+# Split Data Into 65:35 Training Dataset and Test Dataset
+
+# Taken From Housing Subsidy Assignment, 6.3.1 In Book
+
+
+set.seed(3456)
+trainIndex <- createDataPartition(y = paste(housingsubsidy$job, housingsubsidy$education,housingsubsidy$previous, housingsubsidy$y_numeric), p = .65,
+                                  list = FALSE,
+                                  times = 1)
+subsidytrain <- housingsubsidy[ trainIndex,]
+subsidytest  <- housingsubsidy[-trainIndex,]
+
+```
+
 
 # Modelling
 
@@ -620,6 +638,27 @@ pred3 <- prediction(data_2021_2$probs3, data_2021_2$fail)
 auc3 = performance(pred3, measure ="auc")@y.values[[1]][1]
 auc3
 ```
+
+# Making Predictions - Alec Is Working On This Code, Incomplete
+
+```{r}
+
+predictions <- data.frame(Outcome = as.factor(#TestSet$#Unsure),
+                          Probability = predict(model03, #TestSet, type="response"))
+```
+
+# Sensitivity and Specificity - Alec Is Working On This Code, Incomplete
+
+```{r}
+
+ggplot(predictions, aes(x = Probability, fill = as.factor(Outcome))) + 
+  geom_density() +
+  facet_grid(Outcome ~ .) +
+  scale_fill_manual(values = palette) +
+  labs(x = "Rename", y = "Rename",
+       title = "Rename") +
+  theme(strip.text.x = element_text(size = 18),
+        legend.position = "none")
 
 ```
 
