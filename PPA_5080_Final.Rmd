@@ -35,6 +35,7 @@ library(ggpubr) # GGPLOT Based Publication Ready Plots
 library(matchmaker)
 library(corrr) #For correlation Matrix
 library(RColorBrewer)
+library(ROCR)
 
 # functions
 root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
@@ -132,8 +133,6 @@ corrections <- data.frame(
 
 liscenses$address <- match_vec(x=liscenses$address,corrections,from=1,to=2, quiet=TRUE)
 
-liscenses$address[grepl("11601 W TOUHY AVE", liscenses$address)] <- "11601 W TOUHY AVE" #Set Everything which contains Chicago O'hare address to just the address
-
 liscenses$address[grepl("47 W POLK ST", liscenses$address)] <- "47 W POLK ST"
 
 liscenses$address <- gsub("\\s*\\d+$", "", liscenses$address) #Remove any trailing numbers
@@ -177,13 +176,9 @@ data_2021_2 <- left_join(data_2021,liscenses_final %>% select(license_id,min_dat
   mutate(min_date = pmin(min_date1, min_date2, min_date3, na.rm = TRUE), #Select lowest date where multiple joins worked
          age = as.integer(difftime(inspection_date, min_date, units = 'days')))
 
-median(data_2021_2$age,na.rm=TRUE)
-
 data_2021_2 <- data_2021_2 %>%
   mutate(age = ifelse(age<0,0,age),
          age = ifelse(is.na(age),median(age,na.rm=TRUE),age))
-
-median(data_2021_2$age,na.rm=TRUE)
   
 ```
 
@@ -244,6 +239,17 @@ Spatial join census data to restaurants data
 ```{r join_censu_data}
 data_2021_2 <- data_2021_2 %>%
   st_join(.,census_data,predicate = st_intersects)
+
+means_neigh <- data_2021_2 %>% 
+  st_drop_geometry() %>% 
+  group_by(pri_neigh) %>% summarize_at(vars("pct_poverty","Median_Rent","pct_non_white"),mean,na.rm=TRUE)
+
+data_2021_2 <- left_join(data_2021_2,means_neigh,by='pri_neigh') %>%
+  mutate(pct_poverty = ifelse(is.na(pct_poverty.x),pct_poverty.y,pct_poverty.x),
+         Median_Rent = ifelse(is.na(Median_Rent.x),Median_Rent.y,Median_Rent.x),
+         pct_non_white = ifelse(is.na(pct_non_white.x),pct_non_white.y,pct_non_white.x)) %>%
+  select(-ends_with('.x'),-ends_with('.y'))
+
 ```
 
 ## Including Plots
@@ -300,14 +306,33 @@ chicagoboundary <-
   st_transform('ESRI:102271')
 
 ```
-```{r sanitation_complaints, cache=TRUE}
+```{r get_lots_311, cache=TRUE}
 
 sanitation <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_SHORT_CODE='SCB'")
+rodents <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_SHORT_CODE='SGA'")
+bussiness_complaint <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_SHORT_CODE='RBL'")
 
-sanitation2 <- sanitation %>%
+clean_311 <- function(df){
+  clean_df <- df %>%
   mutate(created_date = ymd_hms(created_date),
          year = year(created_date)) %>%
   dplyr::filter(year == 2020 & duplicate=='FALSE') %>%
+  dplyr::filter(!is.na(longitude)) %>%
+  dplyr::filter(!is.na(latitude)) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
+  st_transform('ESRI:102271')
+  return(clean_df)
+}
+
+sanitation2 <- clean_311(sanitation)
+rodents2 <- clean_311(rodents)
+bussiness_complaint2 <- clean_311(bussiness_complaint)
+```
+
+``` {r read_crime}
+thefts <- read.socrata('https://data.cityofchicago.org/resource/qzdf-xmn8.json?primary_type=THEFT') %>%
+  mutate(created_date = ymd_hms(date),
+         year = year(date)) %>%
   dplyr::filter(!is.na(longitude)) %>%
   dplyr::filter(!is.na(latitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
@@ -334,21 +359,6 @@ grid.arrange(
   theme(legend.position = "none"))
 ```
 
-```{r rodents_complaints, cache=TRUE}
-
-rodents <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_TYPE='Rodent%20Baiting/Rat%20Complaint'")
-
-rodents2 <- rodents %>%
-  mutate(created_date = ymd_hms(created_date),
-         year = year(created_date)) %>%
-  dplyr::filter(year == 2020 & duplicate=='FALSE') %>%
-  dplyr::filter(!is.na(longitude)) %>%
-  dplyr::filter(!is.na(latitude)) %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
-  st_transform('ESRI:102271')
-```
-
-
 ```{r baiting_visualized, fig.width=9.5, fig.height=4}
 grid.arrange(ncol=2,
 ggplot() + 
@@ -367,11 +377,29 @@ ggplot() +
   theme(legend.position = "none"))
 ```
 
+```{r thefts, fig.width=9.5, fig.height=4}
+grid.arrange(ncol=2,
+ggplot() + 
+  geom_sf(data = chicagoboundary) +
+  geom_sf(data = thefts, colour="#41B6E6", size=0.1, show.legend = "point") +
+  labs(title= "Theft Events"),
+
+ggplot() + 
+  geom_sf(data = chicagoboundary, fill = "#FFFFFF") +
+  stat_density2d(data = data.frame(st_coordinates(st_centroid(thefts))), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 40, geom = 'polygon') +
+  scale_fill_distiller(palette = "RdBu") +
+  scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
+  labs(title = "Density of Theft Events") + 
+  theme(legend.position = "none"))
+```
+
+
 Look at 50 nearest points since the point density is so high. 
 
 ```{r, nearest_neighboor_analysis, fig.width=9.5, fig.height=4}
 # Producing a Nearest Neighbor Analysis Between the 2021 Inspection Data and 2020 Sanitation Complaints and 2020 Rodent Reports
-
 
 data_2021_2 <- data_2021_2 %>%
     mutate(rodents.nn = nn_function(st_coordinates(data_2021_2), 
@@ -381,38 +409,52 @@ data_2021_2 <- data_2021_2 %>%
            sanitation.nn = nn_function(st_coordinates(data_2021_2), 
                                     st_coordinates(sanitation2),
                                            k = 50),
-           log_sanitation.nn = log(sanitation.nn))
+           log_sanitation.nn = log(sanitation.nn),
+          thefts.nn = nn_function(st_coordinates(data_2021_2), 
+                                    st_coordinates(thefts),
+                                           k = 50),
+          log_thefts.nn = log(thefts.nn),
+          log_pct_poverty = log(1 + pct_poverty)
+           )
 
 my_breaks = c(50,100, 250, 500, 1000, 2000)
 
-grid.arrange(ncol=2,
+grid.arrange(ncol=3,
   
 ggplot() +
   geom_sf(data = chicagoboundary, fill = "grey80") +
   geom_sf(data = data_2021_2, aes(color = rodents.nn), size = 0.5) +
   scale_color_viridis_c(name = "distance", trans = "log",breaks = my_breaks, labels = my_breaks)+
-  labs(title = "Nearest Neighbors of Sanitation Code Complaints") +
-  theme_minimal(),
+  labs(title = "Rodent Complaint") +
+  theme_void(),
 
 ggplot() +
   geom_sf(data = chicagoboundary, fill = "grey80") +
   geom_sf(data = data_2021_2, aes(color = sanitation.nn), size = 0.5) +
   scale_color_viridis_c(name = "distance", trans = "log",breaks = my_breaks, labels = my_breaks)+
-  labs(title = "Nearest Neighbors of Rodent Baiting") +
-  theme_minimal()
+  labs(title = "Sanitation Complaint") +
+  theme_void(),
+
+ggplot() +
+  geom_sf(data = chicagoboundary, fill = "grey80") +
+  geom_sf(data = data_2021_2, aes(color = thefts.nn), size = 0.5) +
+  scale_color_viridis_c(name = "distance", trans = "log",breaks = my_breaks, labels = my_breaks)+
+  labs(title = "Thefts") +
+  theme_void()
 )
 ```
 
 # Explore Predictors
 
-```{r examine_means,fig.width=10,fig.height=3}
+```{r examine_means,fig.width=10,fig.height=4}
 
 # Look at the means for each continuous predictor
 
+quant_predictors <- c("rodents.nn","sanitation.nn","age","prev_fails","Median_Rent","pct_non_white","pct_poverty","fails_Per_year","thefts.nn")
+
 data_2021_2_means <- data_2021_2 %>%
   st_drop_geometry() %>%
-  group_by(results) %>% summarize_at(vars("age","prev_fails","Median_Rent","pct_non_white","pct_poverty","rodents.nn","sanitation.nn","fails_Per_year"),mean,na.rm=TRUE) 
-
+  group_by(results) %>% summarize_at(vars(quant_predictors),mean,na.rm=TRUE) 
 
 data_2021_2_means %>%
   gather(key='variable',value='mean',-results) %>%
@@ -422,6 +464,22 @@ data_2021_2_means %>%
   scale_fill_manual(values=c("#E4002B","#41B6E6"),name='Pass Inspection')+
   labs(x="Pass Inspection", y="Mean Value", 
       title = "Feature associations with likelihood of passing inspection")+
+  theme_bw()
+
+```
+
+```{r data visualization numeric2, fig.width=14, fig.height=7}
+
+test <- data_2021_2 %>% dplyr::select(quant_predictors,'results') %>% st_drop_geometry() %>%
+  gather(key='variable',value='value',-results)
+
+ggplot()+
+  geom_density(data=test,aes(x=value,color=results))+
+  facet_wrap(~variable,scales = "free")+
+  scale_color_manual(values=c("#E4002B","#41B6E6"),name='Enter Housing Subsidy')+
+  labs(x="Enter Housing Subsidy Program", y="Density", 
+      title = "Feature associations with likelihood of entering housing subsidy program",
+      subtitle = "Continous outcomes")+
   theme_bw()
 
 ```
@@ -438,8 +496,9 @@ t_Median_Rent <- t.test(data_2021_2$Median_Rent~data_2021_2$fail)$p.value
 t_rodents.nn <- t.test(data_2021_2$rodents.nn~data_2021_2$fail)$p.value
 t_sanitation.nn <- t.test(data_2021_2$sanitation.nn~data_2021_2$fail)$p.value
 t_fails_per_year <- t.test(data_2021_2$fails_Per_year~data_2021_2$fail)$p.value
+t_thefts <- t.test(data_2021_2$thefts~data_2021_2$fail)$p.value
 
-p_values = c(t_age,t_fails_per_year,t_Median_Rent,t_pct_non_white,t_pct_poverty,t_prev_fails,t_rodents.nn,t_sanitation.nn)
+p_values = c(t_age,t_fails_per_year,t_Median_Rent,t_pct_non_white,t_pct_poverty,t_prev_fails,t_rodents.nn,t_sanitation.nn,t_thefts)
 
 data_2021_2_means %>%
   gather('variable','value',-results) %>%
@@ -456,10 +515,71 @@ Check correlation between predictors
 
 ```{r correlation_matrix}
 
-data_2021_2 %>% dplyr::select(age,prev_fails,Median_Rent,pct_non_white,pct_poverty,rodents.nn,sanitation.nn,fails_Per_year) %>%
+data_2021_2 %>% dplyr::select(quant_predictors) %>%
   st_drop_geometry() %>%
   correlate() %>% 
   autoplot() +
   geom_text(aes(label = round(r,digits=2)),size = 3)
 
 ```
+
+
+# Modelling
+
+``` {r make_models}
+model1 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty,
+                     data = data_2021_2,
+                     family="binomial" (link="logit"))
+
+summary(model1)
+```
+
+``` {r model2}
+model2 <- glm(fail ~ age + prev_fails + Median_Rent + log_rodents.nn + log_sanitation.nn + thefts.nn + log_pct_poverty,
+                     data = data_2021_2,
+                     family="binomial" (link="logit"))
+
+summary(model2)
+```
+
+
+``` {r model3}
+model3 <- glm(fail ~ age + prev_fails + Median_Rent + log_rodents.nn + log_sanitation.nn + thefts.nn + risk + pri_neigh + log_pct_poverty,
+                     data = data_2021_2,
+                     family="binomial" (link="logit"))
+
+summary(model3)
+```
+
+``` {r make_predictiosn}
+data_2021_2 <- data_2021_2 %>% mutate(probs1 = predict(model1, data_2021_2, type= "response"),
+                                      probs2 = predict(model2, data_2021_2, type= "response"),
+                                      probs3 = predict(model3, data_2021_2, type= "response"))
+```
+
+```{r roc_curve, warning = FALSE, message = FALSE}
+ggplot(data_2021_2) +
+  geom_roc(aes(d = as.numeric(fail), m = probs1),n.cuts = 50, labels = FALSE, colour = "orange") +
+  geom_roc(aes(d = as.numeric(fail), m = probs2),n.cuts = 50, labels = FALSE, colour = "blue") +
+  geom_roc(aes(d = as.numeric(fail), m = probs3),n.cuts = 50, labels = FALSE, colour = "red") +
+  style_roc(theme = theme_grey) +
+  geom_abline(slope = 1, intercept = 0, size = 1, color = 'grey60') +
+  labs(title = "ROC Curve - Housing Subsidy Model")+
+  theme_bw()
+
+pred1 <- prediction(data_2021_2$probs1, data_2021_2$fail)
+auc1 = performance(pred1, measure ="auc")@y.values[[1]][1]
+auc1
+
+
+pred2 <- prediction(data_2021_2$probs2, data_2021_2$fail)
+auc2 = performance(pred2, measure ="auc")@y.values[[1]][1]
+auc2
+
+pred3 <- prediction(data_2021_2$probs3, data_2021_2$fail)
+auc3 = performance(pred3, measure ="auc")@y.values[[1]][1]
+auc3
+```
+
+```
+
