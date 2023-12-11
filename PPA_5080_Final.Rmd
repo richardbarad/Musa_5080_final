@@ -180,7 +180,7 @@ clean_inspections <- function(df,y){
   clean_df <- df %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
   st_transform('ESRI:102271') %>%
-  dplyr::filter(year == y & results != 'Out of Business' & results != 'No Entry' & results != 'Not Ready') %>%
+  dplyr::filter(year == y & results != 'Out of Business' & results != 'No Entry' & results != 'Not Ready' & results != 'Business Not Located') %>%
   dplyr::filter(facility_type %in% filter) %>%
   mutate(results = ifelse(results=="Pass w/ Conditions","Pass",results),
          fail = ifelse(results=="Fail",1,0)) %>%
@@ -436,13 +436,17 @@ ggplot() +
 ```{r, nearest_neighboor_analysis, fig.width=9.5, fig.height=4}
 # Producing a Nearest Neighbor Analysis Between the 2021 Inspection Data and 2020 Sanitation Complaints and 2020 Rodent Reports
 
-buffer <- st_buffer(data_2021_2,500)
+buffer <- st_buffer(data_2021_2,1000)
 
-rest_500m <- st_join(data_2021_2 %>% dplyr::select('geometry'),buffer %>% select('inspection_id')) %>%
+rest_500m <- st_join(buffer,data_2020 %>% dplyr::select('geometry','results')) %>%
   st_drop_geometry() %>%
-  group_by(inspection_id) %>% tally() %>%
-  ungroup() %>%
-  rename('res_500m' = n)
+  group_by(inspection_id,results.y) %>% tally() %>%
+  ungroup() %>% spread(key=results.y,value=n) %>%
+  select(-'<NA>') %>%
+  replace(is.na(.), 0) %>%
+  mutate(prev_year_pct_fail = Fail / (Pass + Fail)) %>%
+  replace(is.na(.), 0) %>%
+  select(inspection_id,prev_year_pct_fail)
 
 data_2021_2 <- data_2021_2 %>%
     mutate(rodents.nn = nn_function(st_coordinates(data_2021_2),st_coordinates(rodents2),k = 50),
@@ -453,8 +457,11 @@ data_2021_2 <- data_2021_2 %>%
           log_thefts.nn = log(thefts.nn),
           log_pct_poverty = log(1 + pct_poverty),
           prev_fail.nn = nn_function(st_coordinates(data_2021_2),st_coordinates(fail_2020),k=10)) %>%
-  left_join(.,rest_500m, by = 'inspection_id') %>%
-  mutate(prev_fail_norm3 = prev_fail.nn / res_500m)
+  left_join(.,rest_500m, by = 'inspection_id')
+
+ggplot()+
+  geom_sf(data=buffer,color='blue',fill='transparent')+
+  geom_sf(data=data_2020,aes(color=results),size=0.1)
 ```
 
 ```{r nn_ maps}
@@ -491,7 +498,7 @@ ggplot() +
 
 # Look at the means for each continuous predictor
 
-quant_predictors <- c("rodents.nn","sanitation.nn","age","prev_fails","Median_Rent","pct_non_white","pct_poverty","fails_Per_year","thefts.nn","prev_fail_norm3")
+quant_predictors <- c("rodents.nn","sanitation.nn","age","prev_fails","Median_Rent","pct_non_white","pct_poverty","fails_Per_year","thefts.nn","prev_year_pct_fail")
 
 data_2021_2_means <- data_2021_2 %>%
   st_drop_geometry() %>%
@@ -575,7 +582,7 @@ summary(model1)
 ```
 
 ``` {r model2}
-model2 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_fail_norm3,
+model2 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail,
                      data = data_2021_2,
                      family="binomial" (link="logit"))
 
@@ -584,11 +591,11 @@ summary(model2)
 
 
 ``` {r model3}
-model3 <- glm(fail ~ age + prev_fails + Median_Rent + log_rodents.nn + log_sanitation.nn + thefts.nn + risk + pri_neigh + log_pct_poverty + prev_fail_norm3,
+model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + risk + pri_neigh + pct_poverty + prev_year_pct_fail,
                      data = data_2021_2,
                      family="binomial" (link="logit"))
 
-#summary(model3)
+summary(model3)
 ```
 
 ``` {r make_predictiosn}
@@ -610,7 +617,6 @@ ggplot(data_2021_2) +
 pred1 <- prediction(data_2021_2$probs1, data_2021_2$fail)
 auc1 = performance(pred1, measure ="auc")@y.values[[1]][1]
 auc1
-
 
 pred2 <- prediction(data_2021_2$probs2, data_2021_2$fail)
 auc2 = performance(pred2, measure ="auc")@y.values[[1]][1]
