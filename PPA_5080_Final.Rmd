@@ -35,7 +35,6 @@ library(ggpubr) # GGPLOT Based Publication Ready Plots
 library(matchmaker)
 library(corrr) #For correlation Matrix
 library(RColorBrewer)
-library(ROCR)
 
 # functions
 root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
@@ -367,7 +366,8 @@ grid.arrange(ncol=2,
 ggplot() + 
   geom_sf(data = chicagoboundary) +
   geom_sf(data = rodents2, colour="#41B6E6", size=0.1, show.legend = "point") +
-  labs(title= "Rodent Baiting"),
+  labs(title= "Rodent Baiting")+
+  theme_void(),
 
 ggplot() + 
   geom_sf(data = chicagoboundary, fill = "#FFFFFF") +
@@ -377,6 +377,7 @@ ggplot() +
   scale_fill_distiller(palette = "RdBu") +
   scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
   labs(title = "Density of Rodent Baiting") + 
+  theme_void()+
   theme(legend.position = "none"))
 ```
 
@@ -570,7 +571,9 @@ data_2021_2 %>% dplyr::select(quant_predictors) %>%
 
 ```
 
-# Alec Is Working On This - Not Running/Complete Yet
+# Models
+
+## Split into Training and Test Data
 
 ```{r}
 
@@ -578,82 +581,66 @@ data_2021_2 %>% dplyr::select(quant_predictors) %>%
 
 # Taken From Housing Subsidy Assignment, 6.3.1 In Book
 
-
 set.seed(3456)
-trainIndex <- createDataPartition(y = paste(housingsubsidy$job, housingsubsidy$education,housingsubsidy$previous, housingsubsidy$y_numeric), p = .65,
-                                  list = FALSE,
-                                  times = 1)
-subsidytrain <- housingsubsidy[ trainIndex,]
-subsidytest  <- housingsubsidy[-trainIndex,]
+trainIndex <- createDataPartition(y = paste(data_2021_2$pri_neigh, data_2021_2$fail), p = .65,list = FALSE,times = 1)
+train <- data_2021_2[ trainIndex,]
+test  <- data_2021_2[-trainIndex,]
 
 ```
 
 
-# Modelling
+## Build Models
 
 ``` {r make_models}
 model1 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty,
-                     data = data_2021_2,
+                     data = train,
                      family="binomial" (link="logit"))
 
-summary(model1)
-```
-
-``` {r model2}
 model2 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail,
-                     data = data_2021_2,
+                     data = train,
                      family="binomial" (link="logit"))
 
-summary(model2)
-```
-
-
-``` {r model3}
 model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + risk + pri_neigh + pct_poverty + prev_year_pct_fail,
-                     data = data_2021_2,
+                     data = train,
                      family="binomial" (link="logit"))
 
-summary(model3)
+#summary(model1)
+#summary(model2)
+#summary(model3)
 ```
+
 
 ``` {r make_predictiosn}
-data_2021_2 <- data_2021_2 %>% mutate(probs1 = predict(model1, data_2021_2, type= "response"),
-                                      probs2 = predict(model2, data_2021_2, type= "response"),
-                                      probs3 = predict(model3, data_2021_2, type= "response"))
+
+testProbs <- data.frame(Outcome = as.factor(test$fail),
+                        probs1 = predict(model1, test, type= "response"),
+                        probs2 = predict(model2, test, type= "response"),
+                        probs3 = predict(model3, test, type= "response"))
 ```
 
 ```{r roc_curve, warning = FALSE, message = FALSE}
-ggplot(data_2021_2) +
-  geom_roc(aes(d = as.numeric(fail), m = probs1),n.cuts = 50, labels = FALSE, colour = "orange") +
-  geom_roc(aes(d = as.numeric(fail), m = probs2),n.cuts = 50, labels = FALSE, colour = "blue") +
-  geom_roc(aes(d = as.numeric(fail), m = probs3),n.cuts = 50, labels = FALSE, colour = "red") +
+
+auc1 <- pROC::auc(testProbs$Outcome,testProbs$probs1)
+auc2 <- pROC::auc(testProbs$Outcome,testProbs$probs2)
+auc3 <- pROC::auc(testProbs$Outcome,testProbs$probs3)
+
+ggplot(testProbs) +
+  geom_roc(aes(d = as.numeric(Outcome), m = probs1),n.cuts = 50, labels = FALSE, colour = "orange") +
+  geom_roc(aes(d = as.numeric(Outcome), m = probs2),n.cuts = 50, labels = FALSE, colour = "blue") +
+  geom_roc(aes(d = as.numeric(Outcome), m = probs3),n.cuts = 50, labels = FALSE, colour = "red") +
   style_roc(theme = theme_grey) +
   geom_abline(slope = 1, intercept = 0, size = 1, color = 'grey60') +
   labs(title = "ROC Curve - Housing Subsidy Model")+
   theme_bw()
-
-pred1 <- prediction(data_2021_2$probs1, data_2021_2$fail)
-auc1 = performance(pred1, measure ="auc")@y.values[[1]][1]
-auc1
-
-pred2 <- prediction(data_2021_2$probs2, data_2021_2$fail)
-auc2 = performance(pred2, measure ="auc")@y.values[[1]][1]
-auc2
-
-pred3 <- prediction(data_2021_2$probs3, data_2021_2$fail)
-auc3 = performance(pred3, measure ="auc")@y.values[[1]][1]
-auc3
 ```
 
-# Making Predictions - Alec Is Working On This Code, Incomplete
+# Sensitivity and Specificty Table
 
-```{r}
+# Cross Validation
 
-predictions <- data.frame(Outcome = as.factor(#TestSet$#Unsure),
-                          Probability = predict(model03, #TestSet, type="response"))
-```
+# Looking Senstivity and Specifity by Neighboorhood / (Establishment Type?)
 
-# Sensitivity and Specificity - Alec Is Working On This Code, Incomplete
+# Look at Model Performance by Neighboorhood Type (i.e: race)
 
 ```{r}
 
