@@ -25,19 +25,17 @@ library(caret) # Classification and Regression Training
 library(FNN) # Fast Nearest Neighbor Search Algorithms & Applications
 library(RSocrata) # Download or Upload 'Socrata' Data Sets/Open Data Portals
 library(viridis) # Colorblind-Friendly Color Maps Package
+library(RColorBrewer) #Package for custom color schemes
 library(gridExtra) # Miscellaneous Functions for "Grid" Graphics
 library(knitr) # General-Purpose Package for Dynamic Report Generation
 library(kableExtra) # Construct Complex Table with 'Kable' and Pipe Syntax
 library(plotROC) # Generate Useful ROC Curve Charts for Print and Interactive Use
 library(pROC) # Display and Analyze Receiver Operating Characteristic Curves
 library(lubridate) # Functions to Work with Date-Times and Time-Spans
-library(ggpubr) # GGPLOT Based Publication Ready Plots
-library(matchmaker)
+library(matchmaker) #Use a dictionary to match and replace values
 library(corrr) #For correlation Matrix
-library(RColorBrewer)
 
-# functions
-root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 ```
 
@@ -70,15 +68,13 @@ data$facility_type[grepl("Taqueria", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Hot Dog Station", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Juice and Salad Bar", data$facility_type)] <- "Restaurant"
 
-#Standardize some names of bussinesses
+#Standardize some names of businesses
 
 data$dba_name[grepl("SEE THRU CHINESE", data$dba_name)] <- 'SEE THRU CHINESE RESTAURANT'
 data$dba_name[grepl("JAMAICAN  GATES", data$dba_name)] <- 'JAMAICAN GATES'
 ```
 
 ## Import Bussinesss Liscense Data and Clean
-
-I filtered to just restaurants and converted data to an SF object
 
 ```{r download_liscenses, cache=TRUE}
 
@@ -186,12 +182,10 @@ clean_inspections <- function(df,y){
   st_join(.,neighboorhoods,predicate = st_intersects) %>%
   mutate(pri_neigh = ifelse(location == "(42.008536400868735, -87.91442843927047)","O'Hare",pri_neigh),
          pri_neigh = ifelse(location %in% c("(41.892249163400116, -87.60951804879336)","(41.89233780863412, -87.6040447589981)"),"Streeterville",pri_neigh)) %>%
-  dplyr::filter(pri_neigh != "O'Hare") %>%
-  dplyr::filter(address != '5700 S CICERO AVE')
+  dplyr::filter(pri_neigh != "O'Hare") %>% # Remove Ohare Restaurants
+  dplyr::filter(address != '5700 S CICERO AVE') # Remove Midway Restaurants
   return(clean_df)
 }
-
-
 
 data_2021 <- clean_inspections(data,2021)
 
@@ -253,7 +247,7 @@ data_2021_2 <- left_join(data_2021_2,fails,by=join_by(dba_name==dba_name,address
 
 ## Join Census Data to training dataset
 
-If restaurant is not located inside a census tract, set census data equal to mean of the neighboorhoods the restaurant is in.
+If restaurant is not located inside a census tract, set census data equal to mean of the neighborhoods the restaurant is in.
 
 ```{r join_censu_data}
 data_2021_2 <- data_2021_2 %>%
@@ -293,7 +287,9 @@ neigh_summ <- data_2021 %>% st_drop_geometry() %>%
   spread(key=results,value=n) %>%
   mutate(Fail = replace_na(Fail,0),
     pct_pass = Pass / (Fail + Pass) * 100,
-    pct_fail = Fail / (Fail + Pass) * 100) %>%
+    pct_fail = Fail / (Fail + Pass) * 100,
+    quartile = ntile(pct_fail, 4),
+    decile = ntile(pct_fail, 10)) %>%
   left_join(neighboorhoods,.,by='pri_neigh')
   
 ggplot() +
@@ -322,7 +318,6 @@ neigh_summ %>%
 
 sanitation <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_SHORT_CODE='SCB'")
 rodents <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_SHORT_CODE='SGA'")
-bussiness_complaint <- read.socrata("https://data.cityofchicago.org/resource/v6vf-nfxy.json?SR_SHORT_CODE='RBL'")
 
 clean_311 <- function(df){
   clean_df <- df %>%
@@ -338,7 +333,6 @@ clean_311 <- function(df){
 
 sanitation2 <- clean_311(sanitation)
 rodents2 <- clean_311(rodents)
-bussiness_complaint2 <- clean_311(bussiness_complaint)
 ```
 
 ```{r complaints_visualized, fig.width=9.5, fig.height=4}
@@ -354,7 +348,7 @@ grid.arrange(
   geom_sf(data = chicagoboundary, fill = "#FFFFFF") +
   stat_density2d(data = data.frame(st_coordinates(sanitation2)), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
-                 size = 0.01, bins = 40, geom = 'polygon') +
+                 linewidth = 0.01, bins = 40, geom = 'polygon') +
   scale_fill_distiller(palette = "RdBu") +
   scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
   labs(title = "Density of Sanitation Code Complaints") +
@@ -373,7 +367,7 @@ ggplot() +
   geom_sf(data = chicagoboundary, fill = "#FFFFFF") +
   stat_density2d(data = data.frame(st_coordinates(rodents2)), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
-                 size = 0.01, bins = 40, geom = 'polygon') +
+                 linewidth = 0.01, bins = 40, geom = 'polygon') +
   scale_fill_distiller(palette = "RdBu") +
   scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
   labs(title = "Density of Rodent Baiting") + 
@@ -404,7 +398,7 @@ ggplot() +
   geom_sf(data = chicagoboundary, fill = "#FFFFFF") +
   stat_density2d(data = data.frame(st_coordinates(thefts)), 
                  aes(X, Y, fill = ..level.., alpha = ..level..),
-                 size = 0.01, bins = 40, geom = 'polygon') +
+                 linewidth = 0.01, bins = 40, geom = 'polygon') +
   scale_fill_distiller(palette = "RdBu") +
   scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
   labs(title = "Density of Theft Events") + 
@@ -456,16 +450,16 @@ data_2021_2 <- data_2021_2 %>%
            log_sanitation.nn = log(sanitation.nn),
           thefts.nn = nn_function(st_coordinates(data_2021_2),st_coordinates(thefts),k = 50),
           log_thefts.nn = log(thefts.nn),
-          log_pct_poverty = log(1 + pct_poverty),
-          prev_fail.nn = nn_function(st_coordinates(data_2021_2),st_coordinates(fail_2020),k=10)) %>%
-  left_join(.,rest_500m, by = 'inspection_id')
+          log_pct_poverty = log(1 + pct_poverty)) %>%
+  left_join(.,rest_500m, by = 'inspection_id') %>%
+  left_join(.,neigh_summ %>%st_drop_geometry(), by = 'pri_neigh')
 
 ggplot()+
   geom_sf(data=buffer,color='blue',fill='transparent')+
   geom_sf(data=data_2020,aes(color=results),size=0.1)
 ```
 
-```{r nn_ maps}
+```{r nn_maps, fig.width=10}
 my_breaks = c(50,100, 250, 500, 1000, 2000)
 
 grid.arrange(ncol=3,
@@ -519,6 +513,8 @@ data_2021_2_means %>%
 
 ```{r data visualization numeric2, fig.width=14, fig.height=7}
 
+# This chunk will be deleted in final writeup. I do not think it is needed and is kinda confusing.
+
 data_2021_2 %>% dplyr::select(quant_predictors,'results') %>% st_drop_geometry() %>%
   gather(key='variable',value='value',-results) %>%
   ggplot()+
@@ -531,10 +527,9 @@ data_2021_2 %>% dplyr::select(quant_predictors,'results') %>% st_drop_geometry()
   theme_bw()
 
 ```
+## This chunk is not currently running - Will fix latter
 
 ```{r table_means}
-
-#"age","prev_fails","Median_Rent","pct_white","pct_poverty","rodents.nn","sanitation.nn","fails_Per_year"
 
 t_age <- t.test(data_2021_2$age~data_2021_2$fail)$p.value
 t_prev_fails <- t.test(data_2021_2$prev_fails~data_2021_2$fail)$p.value
@@ -577,12 +572,12 @@ data_2021_2 %>% dplyr::select(quant_predictors) %>%
 
 ```{r}
 
-# Split Data Into 65:35 Training Dataset and Test Dataset
+# Split Data Into 70:30 Training Dataset and Test Dataset
 
 # Taken From Housing Subsidy Assignment, 6.3.1 In Book
 
 set.seed(3456)
-trainIndex <- createDataPartition(y = paste(data_2021_2$pri_neigh, data_2021_2$fail), p = .65,list = FALSE,times = 1)
+trainIndex <- createDataPartition(y = paste(data_2021_2$pri_neigh, data_2021_2$fail), p = .70,list = FALSE,times = 1)
 train <- data_2021_2[ trainIndex,]
 test  <- data_2021_2[-trainIndex,]
 
@@ -600,7 +595,7 @@ model2 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn
                      data = train,
                      family="binomial" (link="logit"))
 
-model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + risk + pri_neigh + pct_poverty + prev_year_pct_fail,
+model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail + decile,
                      data = train,
                      family="binomial" (link="logit"))
 
@@ -612,17 +607,18 @@ model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn
 
 ``` {r make_predictiosn}
 
-testProbs <- data.frame(Outcome = as.factor(test$fail),
+testProbs <- data.frame(inspection_id = test$inspection_id,
+                        Outcome = as.factor(test$fail),
                         probs1 = predict(model1, test, type= "response"),
                         probs2 = predict(model2, test, type= "response"),
                         probs3 = predict(model3, test, type= "response"))
 ```
 
 ```{r roc_curve, warning = FALSE, message = FALSE}
-
-auc1 <- pROC::auc(testProbs$Outcome,testProbs$probs1)
-auc2 <- pROC::auc(testProbs$Outcome,testProbs$probs2)
-auc3 <- pROC::auc(testProbs$Outcome,testProbs$probs3)
+# Need to add anoitation of area under curve
+pROC::auc(testProbs$Outcome,testProbs$probs1)
+pROC::auc(testProbs$Outcome,testProbs$probs2)
+pROC::auc(testProbs$Outcome,testProbs$probs3)
 
 ggplot(testProbs) +
   geom_roc(aes(d = as.numeric(Outcome), m = probs1),n.cuts = 50, labels = FALSE, colour = "orange") +
@@ -634,24 +630,153 @@ ggplot(testProbs) +
   theme_bw()
 ```
 
-# Sensitivity and Specificty Table
-
-# Cross Validation
-
-# Looking Senstivity and Specifity by Neighboorhood / (Establishment Type?)
-
-# Look at Model Performance by Neighboorhood Type (i.e: race)
+## Density
 
 ```{r}
 
-ggplot(predictions, aes(x = Probability, fill = as.factor(Outcome))) + 
+ggplot(testProbs, aes(x = probs3, fill = as.factor(Outcome))) + 
   geom_density() +
-  facet_grid(Outcome ~ .) +
-  scale_fill_manual(values = palette) +
-  labs(x = "Rename", y = "Rename",
-       title = "Rename") +
+  facet_wrap(~Outcome,ncol=1,labeller = as_labeller(c('0'='Pass','1'='Fail'))) +
+  scale_fill_manual(values=c("#41B6E6","#E4002B"))+
+  scale_x_continuous(limits=c(0,1))+
+  labs(x = "Probability of Failure", y = "Density",
+       title = "Density of Predicted Probabilities for Restaurants in Test Dataset that failed and passed inspection") +
   theme(strip.text.x = element_text(size = 18),
         legend.position = "none")
 
 ```
+```{r}
 
+predictions <- as.factor(ifelse(testProbs$probs3 > 0.4,1,0))
+caret::confusionMatrix(testProbs$Outcome,predictions,positive="1")
+
+```
+
+
+
+# Sensitivity and Specificty Table
+
+```{r, sens_spec_table}
+
+tresholds <- c(0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6)
+sensitivity <- c()
+specificity <- c()
+accuracy <- c()
+pred_fail <- c()
+
+confuse = function(actual,probs,tresh){
+  predictions <- as.factor(ifelse(probs > tresh,1,0))
+  matrix <- caret::confusionMatrix(actual,predictions,positive="1")
+  return(matrix)
+}
+
+for (t in tresholds){
+  predictions <- as.factor(ifelse(testProbs$probs3 > t,1,0))
+  r <- caret::confusionMatrix(testProbs$Outcome,predictions,positive="1")
+  sensitivity <- append(sensitivity,r$byClass[1] * 100) 
+  specificity <- append(specificity,r$byClass[2] * 100)
+  accuracy <- append(accuracy,r$overall[1] * 100)
+  pred_fail <- append(pred_fail,sum(r$table[3:4]))
+}
+
+cbind(tresholds,sensitivity,specificity,accuracy,pred_fail) %>%
+  as_data_frame() %>%
+  kbl(col.names = c("Treshold",'Sensitivity (%)','Specificity (%)', 'Accuracy (%)', 'Predicted Failures')) %>%
+  kable_classic_2()
+```
+
+# Cross Validation - this is not working (not sure why)
+
+```{r cross_validation}
+
+ctrl <- trainControl(method = "cv", number = 100, classProbs = TRUE, summaryFunction = twoClassSummary)
+
+cvFit <- train(
+  fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + risk + pri_neigh + pct_poverty + prev_year_pct_fail,
+  data = data_2021_2,
+  method = "glm",
+  family = "binomial",
+  metric = "ROC",
+  trControl = ctrl
+)
+
+cvFit <- train(
+  fail ~ .,
+  data = data_2021_2 %>% 
+    st_drop_geometry() %>% 
+    dplyr::select(age, prev_fails, Median_Rent, rodents.nn, sanitation.nn, thefts.nn, risk, pri_neigh, pct_poverty, prev_year_pct_fail, fail),
+  method = "glm",
+  family = "binomial",
+  metric = "ROC",
+  trControl = ctrl
+)
+
+```
+
+# Looking at Senstivity and Specifity by Neighboorhood - may want to remove (it makes model look really bad :) with 0 specificity in so many neighboorhoods ).
+
+```{r sens_spec_neigh}
+testProbs %>%
+  select(inspection_id,Outcome,probs3) %>%
+  left_join(.,test %>% dplyr::select(pri_neigh,inspection_id),by='inspection_id') %>%
+  mutate(predoutcome = ifelse(probs3 > 0.30,1,0),
+         type = case_when(Outcome == 0 & predoutcome == 0 ~ 'TN',
+                          Outcome == 1 & predoutcome == 1 ~ 'TP',
+                          Outcome == 1 & predoutcome == 0 ~ 'FN',
+                          Outcome == 0 & predoutcome == 1 ~ 'FP')) %>%
+  group_by(pri_neigh,type) %>% tally() %>%
+  spread(key=type,value=n) %>%
+  replace(is.na(.), 0) %>%
+  mutate(Sensitvity = TP / (TP + FN),
+         Specificity = TN / (FP + TN),
+         Accuracy = (TP + TN) / (TP + TN + FP + FN)) %>%
+  select(Sensitvity,Specificity,Accuracy,pri_neigh) %>%
+  gather(accuracy_measure,value,-pri_neigh) %>%
+  inner_join(neighboorhoods,.,by='pri_neigh')%>%
+  ggplot()+
+  geom_sf(aes(fill=value * 100))+
+  facet_wrap(~accuracy_measure)+
+  scale_fill_viridis(option='rocket',name='Percentage')+
+  theme_bw()+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())
+```
+
+# Look at Model Performance by Neighboorhood Type (i.e: High, Medium, and Low Failure Rate)
+
+```{r sens_spec_neigh}
+
+Neighboor <- c('High','Medium','Low','Very Low')
+
+testProbs %>%
+  select(inspection_id,Outcome,probs3) %>%
+  left_join(.,test %>% dplyr::select(quartile,inspection_id),by='inspection_id') %>%
+  mutate(predoutcome = ifelse(probs3 > 0.30,1,0),
+         type = case_when(Outcome == 0 & predoutcome == 0 ~ 'TN',
+                          Outcome == 1 & predoutcome == 1 ~ 'TP',
+                          Outcome == 1 & predoutcome == 0 ~ 'FN',
+                          Outcome == 0 & predoutcome == 1 ~ 'FP')) %>%
+  group_by(quartile,type) %>% tally() %>%
+  ungroup() %>%
+  spread(key=type,value=n) %>%
+  replace(is.na(.), 0) %>%
+  mutate(Sensitvity = round((TP / (TP + FN)) * 100,2),
+         Specificity = round((TN / (FP + TN)) * 100,2),
+         Accuracy = round(((TP + TN) / (TP + TN + FP + FN)) * 100,2),
+         Neighboor = c('Very Low (Quartile 1)','Low (Quartile 2)','Medium (Quartile 3)','High (Quartile 4)')) %>%
+  select(Neighboor,Sensitvity,Specificity,Accuracy) %>%
+  kbl(col.names = c('Historical Neighboorhood Failure Rate','Sensitivity (%)','Specificity (%)','Accuracy (%)')) %>%
+  kable_classic_2()
+```
+
+
+# Look at Model Performance by Race
+
+```{r}
+
+
+```
