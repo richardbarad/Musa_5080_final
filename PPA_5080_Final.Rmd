@@ -267,7 +267,7 @@ data_2021_2 <- left_join(data_2021_2,means_neigh,by='pri_neigh') %>%
 
 ## Exploratory Analysis
 
-```{r guick_map1}
+```{r guick_map1, include = TRUE, fig.keep = "none"}
 
 
 custom_colors <- c("Pass" = "#41B6E6", "Fail" = "#E4002B")
@@ -280,7 +280,9 @@ ggplot() +
 
 ```
 
-```{r guick_map2}
+![](Food Inspections PF_POINT.jpg)
+
+```{r guick_map2, include = TRUE, fig.keep = "none"}
 neigh_summ <- data_2021 %>% st_drop_geometry() %>%
   group_by(pri_neigh,results) %>% tally() %>%
   ungroup() %>%
@@ -298,6 +300,8 @@ ggplot() +
   theme_void()
 ```
 
+![](Food Inspections PP_CHOROPLETH.jpg)
+
 ```{r guick_chart, fig.width=14}
 
 neigh_summ %>% 
@@ -310,6 +314,7 @@ neigh_summ %>%
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ```
+
 # Knearest Neighboor Analysis
 
 ## 311 Datasets
