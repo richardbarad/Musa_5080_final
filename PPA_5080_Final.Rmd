@@ -80,7 +80,6 @@ data <- read.socrata("https://data.cityofchicago.org/Health-Human-Services/Food-
 
 #Clean up a bunch of messy facility names to be able to identify just facilities of (i.e: restaurants, cafes,and bakeries)
 
-data$facility_type[grepl("Restaurant", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Bakery", data$facility_type)] <- "Bakery"
 data$facility_type[grepl("Coffee", data$facility_type)] <- "Coffee Shop"
 data$facility_type[grepl("Ice Cream", data$facility_type)] <- "Ice Cream Shop"
@@ -88,6 +87,7 @@ data$facility_type[grepl("Deli", data$facility_type)] <- "Deli"
 data$facility_type[grepl("Taqueria", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Hot Dog Station", data$facility_type)] <- "Restaurant"
 data$facility_type[grepl("Juice and Salad Bar", data$facility_type)] <- "Restaurant"
+data$facility_type[grepl("Restaurant", data$facility_type)] <- "Restaurant"
 
 #Standardize some names of businesses
 
@@ -249,7 +249,8 @@ data_2021_2 <- data_2021_2 %>%
          age = ifelse(is.na(age),median(age,na.rm=TRUE),age))
   
 ```
-## Estimate Number of previous violations and join to training data
+
+## Estimate Number of previous violations
 
 This code estimates the number of previous violations for each business within the dataset. It begins by filtering the data based on the condition that the year is earlier than 2021 and the outcome is defined as 'Fail'. We then group the dataset by business name and address, and the violations are counted. The results are then joined to the training data after being renamed. The purpose of this code is to provide an overview of the historical violation records associated with each business, helping us understand the full compliance history throughout the city of Chicago.
 
@@ -264,8 +265,8 @@ fails <- data %>%
 
 data_2021_2 <- left_join(data_2021_2,fails,by=join_by(dba_name==dba_name,address==address)) %>%
   mutate(prev_fails = replace_na(prev_fails,0),
-         fails_Per_year = replace_na(prev_fails/(age/365),0),
-         fails_Per_year =  ifelse(is.infinite(fails_Per_year), prev_fails, fails_Per_year))
+         fails_Per_day = replace_na(prev_fails/age,0),
+         fails_Per_day =  ifelse(is.infinite(fails_Per_day), prev_fails, fails_Per_day))
 
 ```
 
@@ -367,6 +368,7 @@ clean_311 <- function(df){
 sanitation2 <- clean_311(sanitation)
 rodents2 <- clean_311(rodents)
 ```
+
 ```{r complaints_visualized, fig.width=9.5, fig.height=4}
 
 grid.arrange(
@@ -454,12 +456,8 @@ rest_1000m <- st_join(buffer,data_2020 %>% dplyr::select('geometry','results')) 
 
 data_2021_2 <- data_2021_2 %>%
     mutate(rodents.nn = nn_function(st_coordinates(data_2021_2),st_coordinates(rodents2),k = 50),
-           log_rodents.nn = log(rodents.nn),
            sanitation.nn = nn_function(st_coordinates(data_2021_2),st_coordinates(sanitation2),k = 50),
-           log_sanitation.nn = log(sanitation.nn),
-          thefts.nn = nn_function(st_coordinates(data_2021_2),st_coordinates(thefts),k = 50),
-          log_thefts.nn = log(thefts.nn),
-          log_pct_poverty = log(1 + pct_poverty)) %>%
+          thefts.nn = nn_function(st_coordinates(data_2021_2),st_coordinates(thefts),k = 50)) %>%
   left_join(.,rest_1000m, by = 'inspection_id') %>%
   left_join(.,neigh_summ %>%st_drop_geometry(), by = 'pri_neigh')
 
@@ -507,7 +505,7 @@ Having identified the predictors which we plan to use to predict restaurant fail
 
 # Look at the means for each continuous predictor
 
-quant_predictors <- c("rodents.nn","sanitation.nn","age","prev_fails","Median_Rent","pct_poverty","fails_Per_year","thefts.nn","prev_year_pct_fail","decile")
+quant_predictors <- c("rodents.nn","sanitation.nn","age","prev_fails","Median_Rent","pct_poverty","fails_Per_day","thefts.nn","prev_year_pct_fail","decile")
 
 data_2021_2_means <- data_2021_2 %>%
   st_drop_geometry() %>%
@@ -555,16 +553,16 @@ t_pct_poverty <- t.test(data_2021_2$pct_poverty~data_2021_2$fail)$p.value
 t_Median_Rent <- t.test(data_2021_2$Median_Rent~data_2021_2$fail)$p.value
 t_rodents.nn <- t.test(data_2021_2$rodents.nn~data_2021_2$fail)$p.value
 t_sanitation.nn <- t.test(data_2021_2$sanitation.nn~data_2021_2$fail)$p.value
-t_fails_per_year <- t.test(data_2021_2$fails_Per_year~data_2021_2$fail)$p.value
+t_fails_per_day <- t.test(data_2021_2$fails_Per_day~data_2021_2$fail)$p.value
 t_thefts <- t.test(data_2021_2$thefts~data_2021_2$fail)$p.value
 t_prev_year <- t.test(data_2021_2$prev_year_pct_fail~data_2021_2$fail)$p.value
 
-p_values = c(t_age,t_decile,t_fails_per_year,t_Median_Rent,t_pct_poverty,t_prev_fails,t_prev_year,t_rodents.nn,t_sanitation.nn,t_thefts)
+p_values = c(t_age,t_decile,t_fails_per_day,t_Median_Rent,t_pct_poverty,t_prev_fails,t_prev_year,t_rodents.nn,t_sanitation.nn,t_thefts)
 
 data_2021_2_means %>%
   gather('variable','value',-results) %>%
   spread('results','value') %>%
-  cbind(.,p_values, variables_text=c('Age (days open)','Neighboorhood Decile (1-10)','Fails per year open','Median Rent (USD)','Percent Poverty','Previous Number of Fails','Percent of Restaurants Failing in previous Year within 1k buffer','Average Distance distance to nearest 50 rodent complaints (meters)','Average Distance to nearest 50 sanitation complaints (meters)','Average distance to nearest 50 reported thefts (meters)')) %>%
+  cbind(.,p_values, variables_text=c('Age (days open)','Neighboorhood Decile (1-10)','Fails per day open','Median Rent (USD)','Percent Poverty','Previous Number of Fails','Percent of Restaurants Failing in previous Year within 1k buffer','Average Distance distance to nearest 50 rodent complaints (meters)','Average Distance to nearest 50 sanitation complaints (meters)','Average distance to nearest 50 reported thefts (meters)')) %>%
   dplyr::select(variables_text,Fail,Pass,p_values) %>%
   kbl(col.names=c('Variables','Fail (Mean)','Pass (Mean)','t-test (p-value)')) %>%
   kable_classic_2()
@@ -610,10 +608,10 @@ test  <- data_2021_2[-trainIndex,]
 
 ### Model 1
 
-Our first model includes the following predictors: Age of restaurant, previous number of fails, fails per year open, Median Rent of census block, percent poverty of census block, and the theft, rodent, and sanitation nearest neighbor variables. The table below shows the Beta Coefficient and p-value for each of the predictors in the model. Examining the p-value can help provide a sense of the predictive power of the variable. The fails_Per_year variable has a very high p-value indicating that its predictive power is limited. For this reason, we decide to exclude the fails_Per-year variable from other models.  
+Our first model includes the following predictors: Age of restaurant, previous number of fails, fails per year open, Median Rent of census block, percent poverty of census block, and the theft, rodent, and sanitation nearest neighbor variables. The table below shows the Beta Coefficient and p-value for each of the predictors in the model. Examining the p-value can help provide a sense of the predictive power of the variable. We decide to retain all variables because all variables have a p-value that is lower than 0.3. While some of the p-value are not statistically significant they do appear to be adding some predictive power to the model.   
 
 ``` {r make_model1}
-model1 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + fails_Per_year,
+model1 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + fails_Per_day,
                      data = train,
                      family="binomial" (link="logit"))
 
@@ -624,10 +622,10 @@ summary(model1)$coefficients[, c('Estimate','Pr(>|z|)')] %>%
 
 ### Model 2
 
-In our second model, we include all the same variable as model one except for the fails_Per_year variable. We also add the 
+In our second model, we include all the same variable as model one. We also add the variable that indicates that percent of restaurants within 1 kilometer that failed inspections in the previous year as a predictor (i.e: prev_year_pct_fail). The Beta Coefficients and p-values for Model 2 are shown below. The prev_year_pct_fail has a low value so we decide to retain it in model 3. 
 
 ```{r make_model2}
-model2 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail,
+model2 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail + fails_Per_day,
                      data = train,
                      family="binomial" (link="logit"))
 
@@ -637,15 +635,23 @@ summary(model2)$coefficients[, c('Estimate','Pr(>|z|)')] %>%
 
 ```
 
-model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail + decile + risk,
+### Model 3
+
+Model three includes all the same predictors as model two but we also include the decile associated with the failure rate of the neighborhood the restaurant is located in. The predictive power of the decile variable is very high as noted by p-value which is close to 0. 
+
+```{r make_model3}
+model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail + decile + fails_Per_day,
                      data = train,
                      family="binomial" (link="logit"))
 
-summary(model1)
-summary(model2)
-summary(model3)
+summary(model3)$coefficients[, c('Estimate','Pr(>|z|)')] %>%
+  kbl(col.names = c('Beta Coefficient','p-value')) %>%
+  kable_classic()
 ```
 
+### Make Predictions
+
+We make predictions using all three logistic models. The result is a prediction using each of the models for each of the restaurants in the test dataset.
 
 ``` {r make_predictiosn}
 
@@ -656,6 +662,10 @@ testProbs <- data.frame(inspection_id = test$inspection_id,
                         probs3 = predict(model3, test, type= "response"))
 ```
 
+### Make ROC Curves
+
+In order to select 
+
 ```{r roc_curve, warning = FALSE, message = FALSE}
 # Need to add anoitation of area under curve
 pROC::auc(testProbs$Outcome,testProbs$probs1)
@@ -663,9 +673,10 @@ pROC::auc(testProbs$Outcome,testProbs$probs2)
 pROC::auc(testProbs$Outcome,testProbs$probs3)
 
 ggplot(testProbs) +
-  geom_roc(aes(d = as.numeric(Outcome), m = probs1),n.cuts = 50, labels = FALSE, colour = "orange") +
-  geom_roc(aes(d = as.numeric(Outcome), m = probs2),n.cuts = 50, labels = FALSE, colour = "blue") +
-  geom_roc(aes(d = as.numeric(Outcome), m = probs3),n.cuts = 50, labels = FALSE, colour = "red") +
+  geom_roc(aes(d = as.numeric(Outcome), m = probs1, colour = "Model 1"),n.cuts = 50, labels = FALSE) +
+  geom_roc(aes(d = as.numeric(Outcome), m = probs2, colour = "Model 2"),n.cuts = 50, labels = FALSE) +
+  geom_roc(aes(d = as.numeric(Outcome), m = probs3, colour = "Model 3"),n.cuts = 50, labels = FALSE) +
+  scale_color_manual(values = c("#E4002B","#41B6E6","#21bf01"),name="Model")+
   style_roc(theme = theme_grey) +
   geom_abline(slope = 1, intercept = 0, size = 1, color = 'grey60') +
   labs(title = "ROC Curve - Housing Subsidy Model")+
