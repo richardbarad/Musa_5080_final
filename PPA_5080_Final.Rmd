@@ -475,11 +475,13 @@ ggplot() +
 
 # Explore Predictors
 
+Having identified the predictors which we plan to use to predict restaurant failures we can explore the data to determine if there is a difference between the mean value for restaurants that fail inspection and restaurants that pass inspection. Based on the plots below, we can conclude that restaurants that fail tend to have a higher age, a higher number of previous fails per year and a higher number of previous failures. Restaurants that fail also tend to be situated in areas with a lower median rent and higher percent of residents living in poverty. Restaurants that fail also tend to have a lower average distance to the nearest 50 theft event, 311 sanitation complaints, and 311 rodent complaints. 
+
 ```{r examine_means,fig.width=10,fig.height=4}
 
 # Look at the means for each continuous predictor
 
-quant_predictors <- c("rodents.nn","sanitation.nn","age","prev_fails","Median_Rent","pct_non_white","pct_poverty","fails_Per_year","thefts.nn","prev_year_pct_fail")
+quant_predictors <- c("rodents.nn","sanitation.nn","age","prev_fails","Median_Rent","pct_poverty","fails_Per_year","thefts.nn","prev_year_pct_fail","decile")
 
 data_2021_2_means <- data_2021_2 %>%
   st_drop_geometry() %>%
@@ -492,7 +494,7 @@ data_2021_2_means %>%
   facet_wrap(~variable,scales = "free",nrow=2)+
   scale_fill_manual(values=c("#E4002B","#41B6E6"),name='Pass Inspection')+
   labs(x="Pass Inspection", y="Mean Value", 
-      title = "Feature associations with likelihood of passing inspection")+
+      title = "Feature associations with likelihood of passing inspection",subtitle="Mean Values")+
   theme_bw()
 
 ```
@@ -513,13 +515,16 @@ data_2021_2 %>% dplyr::select(quant_predictors,'results') %>% st_drop_geometry()
   theme_bw()
 
 ```
+
 ## Means Table
+
+The table below shows the mean value for each predictor for restaurants that failed inspection an restaurants that passed inspection. The table also includes the results of a series of t-tests. T-tests can be used to determine if the mean values are statistically different from each other, and p-values that are less than 0.05 indicate that the mean value for restaurants that passed inspection and restaurants that failed each other are statistically different from each other. The difference in the mean is statistically significant for all predictors except for the age of the restaurant and the distance to nearest 50 reported theft events.  
 
 ```{r table_means}
 
 t_age <- t.test(data_2021_2$age~data_2021_2$fail)$p.value
+t_decile <- t.test(data_2021_2$decile~data_2021_2$fail)$p.value
 t_prev_fails <- t.test(data_2021_2$prev_fails~data_2021_2$fail)$p.value
-t_pct_non_white <- t.test(data_2021_2$pct_non_white~data_2021_2$fail)$p.value
 t_pct_poverty <- t.test(data_2021_2$pct_poverty~data_2021_2$fail)$p.value
 t_Median_Rent <- t.test(data_2021_2$Median_Rent~data_2021_2$fail)$p.value
 t_rodents.nn <- t.test(data_2021_2$rodents.nn~data_2021_2$fail)$p.value
@@ -528,12 +533,13 @@ t_fails_per_year <- t.test(data_2021_2$fails_Per_year~data_2021_2$fail)$p.value
 t_thefts <- t.test(data_2021_2$thefts~data_2021_2$fail)$p.value
 t_prev_year <- t.test(data_2021_2$prev_year_pct_fail~data_2021_2$fail)$p.value
 
-p_values = c(t_age,t_fails_per_year,t_Median_Rent,t_pct_non_white,t_pct_poverty,t_prev_fails,t_prev_year,t_rodents.nn,t_sanitation.nn,t_thefts)
+p_values = c(t_age,t_decile,t_fails_per_year,t_Median_Rent,t_pct_poverty,t_prev_fails,t_prev_year,t_rodents.nn,t_sanitation.nn,t_thefts)
 
 data_2021_2_means %>%
   gather('variable','value',-results) %>%
   spread('results','value') %>%
-  cbind(.,p_values) %>%
+  cbind(.,p_values, variables_text=c('Age (days open)','Neighboorhood Decile (1-10)','Fails per year open','Median Rent (USD)','Percent Poverty','Previous Number of Fails','Percent of Restaurants Failing in previous Year within 1k buffer','Average Distance distance to nearest 50 rodent complaints (meters)','Average Distance to nearest 50 sanitation complaints (meters)','Average distance to nearest 50 reported thefts (meters)')) %>%
+  dplyr::select(variables_text,Fail,Pass,p_values) %>%
   kbl(col.names=c('Variables','Fail (Mean)','Pass (Mean)','t-test (p-value)')) %>%
   kable_classic_2()
   
@@ -541,7 +547,7 @@ data_2021_2_means %>%
 
 # Check Correlations
 
-Check correlation between predictors
+Next, we examine the correlation matrix for the predictors in our model. Checking the correlation is an important step because it allows us to determine if there is any severe multicollinearity between any of predictors. A logistic regression should not include variables that exhibit multicollinearity. We consider variables to be severe multicollinear if the r value is greater than 0.7 or less than -0.7. Based on the correlation matrix below we can conclude that is no severe  multicollinerity between our numeric predictors and they can all be safely included in our predictive model. 
 
 ```{r correlation_matrix}
 
@@ -555,7 +561,11 @@ data_2021_2 %>% dplyr::select(quant_predictors) %>%
 
 # Models
 
+Having identified our potential predictors, explored our data we now proceed to the modelling stage of our analysis. We develop three different models in order to compare the accuracy of models developed using different predictors. 
+
 ## Split into Training and Test Data
+
+The dataset containing restaurants inspection results for 2021 is split into two parts. Seventy percent of the data is put into the training dataset which will be used to train the logistic models. Thirty percent of the data is placed in the test dataset. We will predict the inspection result for each of the data points in the test dataset and compare the predicted outcome to the actual outcomes to assess the model accuracy. 
 
 ```{r}
 
@@ -570,25 +580,44 @@ test  <- data_2021_2[-trainIndex,]
 
 ```
 
-
 ## Build Models
 
-``` {r make_models}
-model1 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty,
+### Model 1
+
+Our first model includes the following predictors: Age of restaurant, previous number of fails, fails per year open, Median Rent of census block, percent poverty of census block, and the theft, rodent, and sanitation nearest neighbor variables. The table below shows the Beta Coefficient and p-value for each of the predictors in the model. Examining the p-value can help provide a sense of the predictive power of the variable. The fails_Per_year variable has a very high p-value indicating that its predictive power is limited. For this reason, we decide to exclude the fails_Per-year variable from other models.  
+
+``` {r make_model1}
+model1 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + fails_Per_year,
                      data = train,
                      family="binomial" (link="logit"))
 
+summary(model1)$coefficients[, c('Estimate','Pr(>|z|)')] %>%
+  kbl(col.names = c('Beta Coefficient','p-value')) %>%
+  kable_classic()
+```
+
+### Model 2
+
+In our second model, we include all the same variable as model one except for the fails_Per_year variable. We also add the 
+
+```{r make_model2}
 model2 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail,
                      data = train,
                      family="binomial" (link="logit"))
 
-model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail + decile,
+summary(model2)$coefficients[, c('Estimate','Pr(>|z|)')] %>%
+  kbl(col.names = c('Beta Coefficient','p-value')) %>%
+  kable_classic()
+
+```
+
+model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail + decile + risk,
                      data = train,
                      family="binomial" (link="logit"))
 
-#summary(model1)
-#summary(model2)
-#summary(model3)
+summary(model1)
+summary(model2)
+summary(model3)
 ```
 
 
@@ -616,6 +645,8 @@ ggplot(testProbs) +
   labs(title = "ROC Curve - Housing Subsidy Model")+
   theme_bw()
 ```
+
+## Model Results
 
 ## Density
 
@@ -685,7 +716,7 @@ confusematrix$table %>%
 ctrl <- trainControl(method = "cv", number = 50, classProbs = TRUE, savePredictions = TRUE, summaryFunction = twoClassSummary)
 
 cvFit <- train(
-  results ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + risk + pct_poverty + prev_year_pct_fail + decile,
+  results ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + risk + pct_poverty + prev_year_pct_fail + decile + risk,
   data = data_2021_2,
   method = "glm",
   family = "binomial",
