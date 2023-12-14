@@ -38,11 +38,33 @@ library(corrr) #For correlation Matrix
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 ```
 
+# Context
+
+The City of Chicago is the third most populated metropolitan area in the United States, boasting a robust culinary landscape with over 15,000 restaurants. Each of the city’s restaurants are subject to a recurring inspection, conducted under the purview of the Department of Public Health’s Division of Food Protection. The task of inspection falls on only 36 accredited sanitarians – leaving each with the responsibility of inspecting around 470 of the 15,000. This resource disparity presents a notable challenge to efficient and effective food safety monitoring.
+
+Addressing resource disparity, Chicago’s solution includes leveraging data and partnering the city's Department of Health with the Advanced Analytics Team housed in the Department of Innovation and Technology. Together, they developed a predictive model aimed at identifying restaurants most likely to have critical food safety violations. The existing model combines historical data, encompassing details from 100,000 past sanitation inspections – along with business characteristics and 311 complaints. The model enables inspectors to prioritize their inspections, concentrating on areas of the greatest risk to fail future food inspections.
+
+The model’s implementation has yielded positive results harnessed by the city of Chicago. Food establishments with critical violations are now more likely to be identified earlier, leading to faster interventions and ultimately creating a increased quality along with availability of dining for Chicago residents. Adopting a more “science-based” initiative highlights the potential of data analytics to enhance public health and economic outcomes, particularly in city governments with limited resources.
+
+# Motivation
+
+Recently, the City of Chicago launched a program through its Department of Public Health and Office of Food Protection, allocating money to a Local Restaurant Improvement Fund. The city aims to appropriate funding resources to establishments facing elevated probability of non-compliance with food safety standards set by the Food Protection Division. As mentioned, on a yearly basis, all retail food establishments throughout Chicago are subject to recurring inspection – aimed at ensuring the quality and safety of food intended for public consumption.
+
+Building on the city's previous work in predictive modeling, we have developed a supplementary forecasting tool tailored to predict a restaurant's likelihood of failing food inspections. This undertaking represents a departure from the conventional procedures common throughout the nation, adopting the more "science-based" methodology employed by the city. However, unlike the city's current use of their predictive model, our model looks to specifically inform the deployment of funds contingent on the forecast of health inspections - harnessing predictive analytics to identify restaurants with an increased susceptibility to regulatory infractions. Our objective is clear: to optimize the impact of the allocated financial resources by strategically directing them towards establishments deemed most at risk of failing food inspections.
+
+The selected restaurants are set to receive financial support, and profit not only monetarily but benefit by engaging in an educational discourse on the importance of passing food inspections. The eligibility for funding hinges on adhering to food quality standards year after year, reinforcing the commitment to maintaining the restaurant's quality. If, however, the establishment falls short of the city's benchmarks, they face the halting of financial support of the city - a harsh reminder of the health standards set in place. Our proposed initiative, thus, unfolds as a structured and strategic intervention, positioning itself as a proactive mechanism for fostering restaurant quality and elevating the overall quality of restaurant offerings throughout the city of Chicago.
+
+# Application
+
+To support the coordinated efforts regarding the restaurant improvement program informed by the predictive modeling, we propose a web-based application. The key features we envision include a heat map, a list of restaurant predictors along with corresponding information, a probability or confidence level toggle section, and supporting search and export features. The web-based application would also be translated into a smartphone format – one that may be more translatable to additional stakeholders outside of the city's decision-makers relating to the Local Restaurant Improvement Fund. The smartphone format would contain the same elements as the browser-based application and will provide a clear direction concerning the funding program. 
+
+Upon thoroughly validating and testing our predictive model for desired outcomes, we intend to proceed with the implementation stage . This stage would involve operationalizing the web-based application with support from a software developer for a seamless and scalable launch. We will first conduct a preliminary beta test with the city of Chicago to gather real-world feedback, and then prepare a full rollout strategy after initial the testing is complete. Developing an effective rollout strategy is crucial for the app's deployment, and we remain committed to continually refine the application based on valuable insights gathered through current inspection data used in our predictve forecasting model.
+
 # Import Data
 
 ## Import Inspection Data 
 
-Import inspection data and clean data.
+We begin building our predictive model by importing food inspection data from the City of Chicago, covering all records since our analysis focuses on historical failures. The provided information originates from assessments conducted on restaurants and food establishments in Chicago from January 1, 2010 to present. These inspections are carried out by personnel from the Chicago Department of Public Health’s Food Protection Program. Subsequently, the results are entered into a database for approval by a State of Illinois Licensed Environmental Health Practitioner. After importing the data on food inspections, we clean and stardardize the business names along with the facility types. Our selectiveness ensures the predictive model will be built on the types of restaurants/facilities we are trying to target for the Local Restaurant Improvement Fund.
 
 ```{r read_data, cache=TRUE}
 
@@ -73,21 +95,19 @@ data$dba_name[grepl("SEE THRU CHINESE", data$dba_name)] <- 'SEE THRU CHINESE RES
 data$dba_name[grepl("JAMAICAN  GATES", data$dba_name)] <- 'JAMAICAN GATES'
 ```
 
-## Import Bussinesss Liscense Data and Clean
+We download business licenses from the Chicago Data Portal. These licenses are issued by the Department of Business Affairs and Consumer Protection in the City of Chicago, covering the period from 2002 to the present. Next, we proceed with importing and cleaning the data on business licenses. The data retrieval encompasses all licenses issued since 2010, the year our analysis starts given the limitation that our  inspection data does not extend beyond the last 10 years.
 
 ```{r download_liscenses, cache=TRUE}
 
-#Download all liscences data since 2010, started in 2010 because inspection data does not go back more than 10 years
+# Download Business Licenses From the Chicago Data Portal
 
 liscenses <- read.socrata("https://data.cityofchicago.org/resource/r5kz-chrr.json?$where=license_start_date%20between%20%272010-01-01T12:00:00%27%20and%20%272021-12-31T14:00:00%27")
 
 ```
 
-This code is all cleaning the bussiness liscence data, to ensure that addresses match across the bussiness liscence data and inspections data since we join the two together. Matching on the liscence_id often did not work!
-
 ```{r clean_data}
 
-#Doing some manual cleaning of address
+# Manual Cleaning Of Addresses
 
 corrections <- data.frame(
   bad = c("4623-4627 N BROADWAY  1 & 2","100 E WALTON ST 1 104","436-440 E 79TH ST","1733 W 87TH ST 1ST FLOOR","163 E WALTON ST 2ND F","5640 S UNIVERSITY AVE","5255 W MADISON ST 1 B","111 E 51ST ST 1ST`"),
@@ -132,6 +152,10 @@ chicagoboundary <-
 ## Census Data
 
 Wrangle and download census data on percent white population, percent poverty, and median rent by census block.
+
+Income in the Past 12 Months Below Poverty Level: Households are classified as poor when the total income of the householder's family in the last 12 months is below the appropriate poverty threshold.
+
+
 
 ```{r census_data, results = 'hide'}
 variables = c("B17017_002", #Total Households w/ income below poverty line
@@ -278,6 +302,7 @@ ggplot() +
   theme_void()
 
 ```
+The map on the left shows data on the outcomes of food inspections in 2021. This is the data we will use to train our model. We find that there is spatial clustering present in the location of inspection failures.
 
 ![](Food Inspections PF_POINT.jpg)
 
@@ -298,6 +323,7 @@ ggplot() +
   scale_fill_distiller(palette = "Blues") +
   theme_void()
 ```
+The map on the right shows the percent of restaurants that pass inspections. Restaurants in Garfield Park, New City and Chinatown have the highest fail rates in the city. 
 
 ![](Food Inspections PP_CHOROPLETH.jpg)
 
@@ -313,6 +339,8 @@ neigh_summ %>%
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ```
+
+In the figure above, we have display a stacked bar plot to illustrate the pass and fail rates across various neighborhoods throughout Chicago. The x-axis denotes different neighborhoods, the y-axis represents rates, and the bars are stacked to visually depict the distribution of pass and fail rates of food inspections. Notably, Riverdale, Millennium Park, and Jackson Park emerge as the neighborhoods with the highest percentage of pass rates in Chicago, while Garfield Park, Navy City, and Chinatown exhibit the largest percentage of fail rates for food inspections. Note: The pass/fail rates may not be completely suggestive since they can be influenced by the number of restaurants, or the lack thereof in Chicago's neighborhoods.
 
 # Knearest Neighboor Analysis
 
@@ -338,7 +366,6 @@ clean_311 <- function(df){
 sanitation2 <- clean_311(sanitation)
 rodents2 <- clean_311(rodents)
 ```
-
 ```{r complaints_visualized, fig.width=9.5, fig.height=4}
 
 grid.arrange(
@@ -409,8 +436,6 @@ ggplot() +
   theme(legend.position = "none"))
 ```
 
-
-
 ```{r, nearest_neighboor_analysis, fig.width=9.5, fig.height=4}
 # Producing a Nearest Neighbor Analysis Between the 2021 Inspection Data and 2020 Sanitation Complaints and 2020 Rodent Reports
 
@@ -441,7 +466,7 @@ ggplot() +
   geom_sf(data = chicagoboundary, fill = "grey80") +
   geom_sf(data = data_2021_2, aes(color = prev_year_pct_fail * 100), size = 0.5) +
   scale_color_viridis_c(name = "Percent Failure")+
-  labs(title = "Percent of Restaurants within 1km that failed in 2020") +
+  labs(title = "Percent of Restaurants Within 1km That Failed in 2020") +
   theme_void()
 ```
 
