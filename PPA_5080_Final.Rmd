@@ -21,7 +21,7 @@ rm(list=ls())
 
 ```{r knitting_options, include = FALSE}
 # Global Options For Knitting Chunks
-knitr::opts_chunk$set(echo = T, messages = F, warning = F, error = F)
+knitr::opts_chunk$set(echo = TRUE, messages = FALSE, warning = FALSE, error = FALSE)
 ```
 
 ```{r import_libraries, include = FALSE}
@@ -103,7 +103,7 @@ data$dba_name[grepl("SEE THRU CHINESE", data$dba_name)] <- 'SEE THRU CHINESE RES
 data$dba_name[grepl("JAMAICAN  GATES", data$dba_name)] <- 'JAMAICAN GATES'
 ```
 
-We download business licenses from the Chicago Data Portal. These licenses are issued by the Department of Business Affairs and Consumer Protection in the City of Chicago, covering the period from 2002 to the present. Next, we proceed with importing and cleaning the data on business licenses. The data retrieval encompasses all licenses issued since 2010, the year our analysis starts given the limitation that our  inspection data does not extend beyond the last 10 years.
+We download business licenses from the Chicago Data Portal. These licenses are issued by the Department of Business Affairs and Consumer Protection in the City of Chicago, covering the period from 2002 to the present. Next, we proceed with importing and cleaning the data on business licenses. The data retrieval encompasses all licenses issued since 2010, the year our analysis starts given the limitation that our inspection data does not extend beyond the last 10 years.
 
 ```{r download_liscenses, cache=TRUE}
 
@@ -148,7 +148,7 @@ liscenses$doing_business_as_name[grepl("FRANCES' DELI & BRUNCHERY", liscenses$do
 
 We collect the spatial data for the neighborhoods and the overall city boundary of Chicago, preparing for our spatial analysis and upcoming visualizations. The boundaries of both the city and its neighborhoods were collected from the Chicago Data Portal. The neighborhoods shapefile is refined to include only the neighborhoods and geometry columns, while the city boundary is transformed to a common spatial reference system for compatibility.
 
-```{r neighboorhoods_data}
+```{r neighboorhoods_data, results='hide', warning=FALSE}
 
 neighboorhoods <- st_read('Data/neighboorhoods.shp')%>%
   st_transform('ESRI:102271') %>%
@@ -166,7 +166,7 @@ Wrangle and download census data on percent white population, percent poverty, a
 Income in the Past 12 Months Below Poverty Level: Households are classified as poor when the total income of the householder's family in the last 12 months is below the appropriate poverty threshold.
 
 
-```{r census_data, results = 'hide'}
+```{r census_data, results = 'hide',warning=FALSE, message=FALSE}
 variables = c("B17017_002", #Total Households w/ income below poverty line
               "B17017_001", #Total Households 
               "B02001_001", #Total Population
@@ -194,7 +194,9 @@ census_data <- get_acs("block group",
   select('Median_Rent','pct_non_white','pct_poverty','GEOID')
 ```
 
-# Build Training Dataset
+# Feature Engineering
+
+## Clean Inspections Dataset
 
 We build a training dataset involving filtering and cleaning the inspection data; joining neighborhoods, selecting restaurant types, and specifying a specific year - 2021. We also exclude the limited inspections conducted in the boundary housing the Chicago O'Hare International Airport. We then treat instances labeled as "Pass w/ Conditions" as equivalent to a regular "Pass," and conduct a spatial join with neighborhood data. The resulting cleaned dataset will be used to construct training datasets for the years 2021 and 2020, facilitating our following predictive modeling.
 
@@ -230,7 +232,7 @@ data_2020 <- clean_inspections(data,2020)
 
 This code calculates the age of each business by referencing the date of its initial business license application. Specifically relating to retail establishments, it identifies the date when the license was first obtained. The minimum date is then joined back to the original license data and a subset of relevant columns is selected. The resulting age is estimated in days with a maximum age expected to be around 365 days. To enhance accuracy, our code attempts various join methods, as direct joining on the license number did not consistently yield matches. The time frame considered spans 11 years, reflecting the available license data from 2010 onward. This ensures that the analysis focuses on the relevant period up to the year 2021.
 
-``` {r determine_age}
+``` {r determine_age, warning=FALSE, message=FALSE, results='hide'}
 #For each for retail establishment determine date when a license was first obtained
 liscense_min <- liscenses %>% group_by(doing_business_as_name,address) %>% summarize(min_date = min(license_start_date)) %>%
   arrange(min_date)
@@ -278,7 +280,7 @@ data_2021_2 <- left_join(data_2021_2,fails,by=join_by(dba_name==dba_name,address
 
 ```
 
-## Join Census Data to training dataset
+## Join Census Data
 
 Here, we integrate census data into the training dataset through a spatial join, associating each restaurant record with corresponding census tract information. A calculation is performed on neighborhood-level statistics, including mean values for variables such as percent poverty, median rent, and percent non-white - organized by the neighborhoods. We handle cases where a restaurant lacks a specific census tract association by performing a left join, replacing missing values in the joined columns with the mean neighborhood statistics. In the end, each restaurant entry is supported with the census socioeconomic information, producing a more detailed analysis of its context within the surrounding demographic landscape of Chicago.
 
@@ -337,7 +339,7 @@ This map depicts the percent of restaurants that pass inspections. Restaurants i
 
 ![](Food Inspections PP_CHOROPLETH.jpg)
 
-```{r guick_chart, fig.width=14}
+```{r guick_chart, fig.width=14, fig.height=5}
 
 neigh_summ %>%
   st_drop_geometry() %>%
@@ -544,7 +546,7 @@ data_2021_2_means %>%
   geom_bar(stat='identity')+
   facet_wrap(~variable,scales = "free",nrow=2)+
   scale_fill_manual(values=c("#E4002B","#41B6E6"),name='Pass Inspection')+
-  labs(x="Pass Inspection", y="Mean Value", title = "Feature Associations With Likelihood of Passing         Inspection", subtitle="Mean Values")+
+  labs(x="Pass Inspection", y="Mean Value", title = "Feature Associations With Likelihood of Passing Inspection", subtitle="Mean Values")+
   theme_bw()
 
 ```
@@ -595,11 +597,11 @@ data_2021_2_means %>%
   
 ```
 
-# Check Correlations
+## Multicollinearity checks
 
 Next, we examine the correlation matrix for the predictors in our model. Checking the correlation is an important step because it allows us to determine if there is any severe multicollinearity between any of predictors. A logistic regression should not include variables that exhibit multicollinearity. We consider variables to be severe multicollinear if the r value is greater than 0.7 or less than -0.7. Based on the correlation matrix below we can conclude that is no severe  multicollinerity between our numeric predictors and they can all be safely included in our predictive model. 
 
-```{r correlation_matrix}
+```{r correlation_matrix,warning=FALSE, message=FALSE}
 
 data_2021_2 %>% dplyr::select(quant_predictors) %>%
   st_drop_geometry() %>%
@@ -643,7 +645,7 @@ model1 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn
 
 summary(model1)$coefficients[, c('Estimate','Pr(>|z|)')] %>%
   kbl(col.names = c('Beta Coefficient','p-value')) %>%
-  kable_classic()
+  kable_minimal()
 ```
 
 ### Model 2
@@ -657,7 +659,7 @@ model2 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn
 
 summary(model2)$coefficients[, c('Estimate','Pr(>|z|)')] %>%
   kbl(col.names = c('Beta Coefficient','p-value')) %>%
-  kable_classic()
+  kable_minimal()
 
 ```
 
@@ -672,10 +674,11 @@ model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn
 
 summary(model3)$coefficients[, c('Estimate','Pr(>|z|)')] %>%
   kbl(col.names = c('Beta Coefficient','p-value')) %>%
-  kable_classic()
+  kable_minimal()
 ```
 
-### Make Predictions
+
+## Make Predictions
 
 We make predictions using all three logistic models. The result is a prediction using each of the models for each of the restaurants in the test dataset.
 
@@ -688,7 +691,7 @@ testProbs <- data.frame(inspection_id = test$inspection_id,
                         probs3 = predict(model3, test, type= "response"))
 ```
 
-### Make ROC Curves
+## ROC Curves
 
 In order to select which of the three models to use we examine the ROC curve for each of the models. Each of the logistic regression models outputs a probability indicting the likelihood that a restaurant will pass an inspection. Probabilities are produced for each restaurant in the test dataset for each model. 
 
@@ -724,7 +727,7 @@ ggplot(testProbs) +
 
 The density plots below show the density of predicted probabilities for restaurants in the Test dataset that passed inspection and restaurants that failed inspections. The predicted probabilities of failing inspection for almost all points in the test dataset are under 0.50. This indicates that there is generally a high level of uncertainty on if a restaurant will pass inspection. 
 
-However, a positive sign is that the peak of the predicted probability density curve for restaurants that fail inspection is higher than for restaurants that pass inspection. The most frequent predicted fail probability for restaurants that actually failed inspection is approximately 0.3. On the other hand, the most frequent fail probability fo restaurants that passed inspection is approximately 0.22.
+However, a positive sign is that the peak of the predicted probability density curve for restaurants that fail inspection is higher than for restaurants that pass inspection. The most frequent predicted fail probability for restaurants that actually failed inspection is approximately 0.3. On the other hand, the most frequent fail probability for restaurants that passed inspection is approximately 0.22.
 
 ```{r density_chart, fig.width=10}
 
@@ -744,14 +747,14 @@ The table below show the median predicted fail probability for restaurants that 
 
 ``` {r median_probability}
 testProbs %>%
-  group_by(Outcome) %>% summarise(median_probs=median(probs3)) %>%
+  group_by(Outcome) %>% summarise(median_probs=median(probs3),mean_probs=mean(probs3)) %>%
   cbind(.,Outcome2=c('Pass','Fail')) %>%
   dplyr::select(Outcome2,median_probs) %>%
-  kbl(col.names=c('Outcome','Median Predicted Fail Probability')) %>%
+  kbl(col.names=c('Actual Outcome','Median Predicted Fail Probability')) %>%
   kable_minimal()
 ```
 
-# Sensitivity and Specificty Table
+## Treshold Selection
 
 A key component of using a logistic regression is selecting a threshold. Restaurants which are above this threshold are considered to have a high risk of failing inspection and would be the target of the restaurant improvement program. The table below presents three different accuracy metrics for different probability thresholds using our test dataset. 
 
@@ -782,11 +785,13 @@ for (t in tresholds){
 
 cbind(tresholds,sensitivity,specificity,accuracy,pred_fail) %>%
   as_data_frame() %>%
+  mutate(across(where(is.numeric), round, 2)) %>%
   kbl(col.names = c("Threshold",'Sensitivity (%)','Specificity (%)', 'Accuracy (%)', 'Predicted Failures')) %>%
-  kable_classic_2()
+  kable_paper() %>%
+  row_spec(5, bold = T, background = "lightgreen")
 ```
 
-Here we examine the confusion matrix for the test dataset for our selected model (i.e: Model 3) at the selected thresholds (0.3). The confusion matrix compares our predictions to the actual outcome. In the confusion matrix, the value in the top left corner represents cases where we correctly predicted a restaurant would pass inspection. The value in the bottom right corner indicates the number of restaurants we correctly predicted as passing inspection.  The value in the top right corner, indicates the number of restaurants we predicted as Failing but actually passed inspection (i.e: false negatives). The value in the bottom left corner indicates the number restaurants we predicted to fail but actually passed (i.e: false positives). When using the 0.3 threshold our model miss classifies 491 restaurants as failing inspection.
+Here we examine the confusion matrix for the test dataset for our selected model (i.e: Model 3) at the selected thresholds (0.3). The confusion matrix compares our predictions to the actual outcomes. In the confusion matrix, the value in the top left corner represents cases where we correctly predicted a restaurant would pass inspection. The value in the bottom right corner indicates the number of restaurants we correctly predicted as passing inspection.  The value in the top right corner, indicates the number of restaurants we predicted as Failing but actually passed inspection (i.e: false negatives). The value in the bottom left corner indicates the number restaurants we predicted to fail but actually passed (i.e: false positives). When using the 0.3 threshold our model miss classifies 491 restaurants as failing inspection.
 
 ```{r confusion_matrix}
 
@@ -805,11 +810,15 @@ confusematrix$table %>%
 
 ```
 
-# Cross Validation
+# Model Generlizability
 
-50 K fold cross validation
+## Cross Validation
 
-```{r cross_validation}
+We also run a cross validation for our chosen model and threshold combination. The cross validation helps us understand if the model is generlizable to different data. A cross validation involves running the model multiple times while changing the data points which are included in the training and test datasets. We run a 50-fold cross validation and examine compare the predicted outcomes to the actual outcome in each of the 50 test datasets and calculate the sensitivity, specificty, accuracy, an area under the curve metrics are calculated for each fold. 
+
+In the figure below shows the distribution of AUC, sensitvity, specificity, and accuracy across the 100 folds. Sensitivity, Specificity, and Accuracy are again calculated using the 0.3 probability threshold. The model generalizes well according to the specificity and accuracy outcomes, as indicated by the limited variability in the range of outcomes. However, the sensitivity (i.e: percent of failures correctly predicted) has a wider spread of outcomes across the different folds. Understanding this variation in the models ability to accurately predict restaurant failures is a key limitation which will be important for the restaurant improvement program to understand. In the next section, we will try to identify geographic areas where the model performance is poor. 
+
+```{r cross_validation, warning=FALSE,message=FALSE}
 
 ctrl <- trainControl(method = "cv", number = 50, classProbs = TRUE, savePredictions = TRUE, summaryFunction = twoClassSummary)
 
@@ -846,16 +855,20 @@ ggplot(data=pred,aes(value)) +
   facet_wrap(~metric) +
   geom_vline(aes(xintercept = mean), colour = "#41B6E6", linetype = 3, size = 1.5) +
   scale_x_continuous(limits = c(0, 1)) +
-  labs(x="Goodness of Fit", y="Count", title="CV Goodness of Fit Metrics using 0.3 treshold",subtitle = "Across-fold mean reprented as dotted lines")+
+  labs(x="Goodness of Fit", y="Count", title="Cross Validation Model Fit Metrics",subtitle = "Across-fold mean reprented as dotted lines")+
   theme_bw()
 
 
 ```
 
-# Looking at Senstivity and Specifity by Neighboorhood - may want to remove (it makes model look really bad :) with 0 specificity in so many neighboorhoods ).
+## Accuracy by Neighboorhood
 
-```{r sens_spec_neigh}
-testProbs %>%
+The maps below show the Sensitvity, Specificty, and Accuracy of the model predictions for the initial test dataset by neighborhood. There are some key spatial patterns and trends in the results which are important for model users to understand. First, the Sensitivity in many neighborhoods is 0%. This means that in many parts of the city the model failed to accurately predict all restaurant failures when setting the threshold for a predicted failure at 0.3. Examples of neighborhoods where this is true include Grand Boulevard, United Center, Armour Square and Logan Square. The neighborhoods which have a sensitvity of 0% tend to have a specificity near 100%.
+
+Conversely, there are also neighborhoods where the specificity is 0% ans the sensitivity is near 100%. Examples of such neighborhoods include Chinatown, New City, Garfield Park and Washington Heights. These are the same neighborhoods which had high failure rates based on our exploratory analysis.
+
+```{r sens_spec_neigh,fig.width=8}
+accuracy_neigh <- testProbs %>%
   select(inspection_id,Outcome,probs3) %>%
   left_join(.,test %>% dplyr::select(pri_neigh,inspection_id),by='inspection_id') %>%
   mutate(predoutcome = ifelse(probs3 > 0.30,1,0),
@@ -871,8 +884,9 @@ testProbs %>%
          Accuracy = (TP + TN) / (TP + TN + FP + FN)) %>%
   select(Sensitvity,Specificity,Accuracy,pri_neigh) %>%
   gather(accuracy_measure,value,-pri_neigh) %>%
-  inner_join(neighboorhoods,.,by='pri_neigh')%>%
-  ggplot()+
+  inner_join(neighboorhoods,.,by='pri_neigh')
+  
+  ggplot(data=accuracy_neigh)+
   geom_sf(aes(fill=value * 100))+
   facet_wrap(~accuracy_measure)+
   scale_fill_viridis(option='rocket',name='Percentage')+
@@ -885,9 +899,15 @@ testProbs %>%
         panel.grid.minor = element_blank())
 ```
 
-# Look at Model Performance by Neighboorhood Type (i.e: High, Medium, and Low Failure Rate)
+## Accuracy by Neighboorhood Type
 
-```{r sens_spec_neigh}
+To better understand how sensitivity, specificity, and accuracy vary across different types of neighborhoods we group all neighborhoods in Chicago into four categories based on the restaurant inspection failure rate for restaurants in 2021. Each category contains the same number of neighborhoods. 
+
+Our predictions for restaurants in neighborhoods that have a very low or low historical failure rate exhibit a low sensitivity, high specificity, and high overall accuracy. The low sensitivity indicates that our model only accurately predicts 1.6% of restaurant failures in neighborhoods with a low historical failure. Because the number of failures is very small (approximately 8-12% of inspections in most neighborhoods) our accuracy is still high in these neighborhoods. 
+
+Our predictions for restaurants in neighborhoods that have a high historical failure rate exhibit a high sensitivity and low specificity, and low overall accuracy. The low specificity indicates that our model only accurately predicts 21.71% of restaurants as passing inspections. A large number of restaurants that actually passed inspections are miss classified as failing inspections in neighboorhods with a high historical failure rate.
+
+```{r sens_spec_neigh_type}
 
 testProbs %>%
   select(inspection_id,Outcome,probs3) %>%
@@ -907,13 +927,14 @@ testProbs %>%
          Neighboor = c('Very Low (Quartile 1)','Low (Quartile 2)','Medium (Quartile 3)','High (Quartile 4)')) %>%
   select(Neighboor,Sensitvity,Specificity,Accuracy) %>%
   kbl(col.names = c('Historical Neighboorhood Failure Rate','Sensitivity (%)','Specificity (%)','Accuracy (%)')) %>%
-  kable_classic_2()
+  kable_minimal()
 ```
 
+## Accuracy by Race Context
 
-# Look at Model Performance by Race
+We also examine our model performance across different race contexts. We classify census tracts into majority white census tracts and majority non white census tracts and examine the accuracy, sensitivity, and specificity for predictions for restaurants in majority white and majority non white census tracts using our selected threshold of 0.3. The sensitivity is higher for restaurants in majority non-white areas and the specificity is lower. The lower specificity indicates that our selected model and threshold combination tends to overestimate the number of restaurant failures in non-white areas. Conversely, the low sensitivity in white areas indicates that the model misses a large percentage of restaurant failures in majority white area.
 
-```{r}
+```{r perforamnce_race}
 
 testProbs %>%
   select(inspection_id,Outcome,probs3) %>%
@@ -933,6 +954,6 @@ testProbs %>%
          Accuracy = round(((TP + TN) / (TP + TN + FP + FN)) * 100,2)) %>%
   select(majority_pop,Sensitvity,Specificity,Accuracy) %>%
   kbl(col.names = c('Majority Population','Sensitivity (%)','Specificity (%)','Accuracy (%)')) %>%
-  kable_classic_2()
+  kable_minimal()
 
 ```
