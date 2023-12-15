@@ -664,28 +664,41 @@ testProbs <- data.frame(inspection_id = test$inspection_id,
 
 ### Make ROC Curves
 
-In order to select 
+In order to select which of the three models to use we examine the ROC curve for each of the models. Each of the logistic regression models outputs a probability indicting the likelihood that a restaurant will pass an inspection. Probabilities are produced for each restaurant in the test dataset for each model. 
+
+We will use a receiver operating characteristic curve to assess the overall fit of each model. In our ROC curves we plot the false positive fraction (i.e: percent of Passes incorrectly predicted) and True positive fraction (I.e: percent of passes correctly predicted) at fifty different thresholds. The ROC curves helps show the trade offs in a logistic regression analysis. If we select a lower thresholds, the model will correctly predict more restaurant failures (i.e: the true positive fraction will be high). However, when a low threshold is used the model will likely incorrectly predict many restaurants as failing inspections that actually would pass inspection (i.e: the false positive rate will also be high).
+
+All three models are a step above selecting restaurants at random. The grey line shown below shows what an ROC curve would look like if restaurants were selected randomly for the program. 
+
+A useful way to compare the fit of the different logistic regression models is to calculate the Area Under (AUC) for each of the ROC curves. ROC curves that have a higher AUC have a better fit. The AUC values are visible in top right hand corner of the ROC plot. Model three has the highest AUC of the three models. Moving forward, we will only present results for Model 3. 
 
 ```{r roc_curve, warning = FALSE, message = FALSE}
 # Need to add anoitation of area under curve
-pROC::auc(testProbs$Outcome,testProbs$probs1)
-pROC::auc(testProbs$Outcome,testProbs$probs2)
-pROC::auc(testProbs$Outcome,testProbs$probs3)
+auc1 <- round(pROC::auc(testProbs$Outcome,testProbs$probs1),3)
+auc2 <- round(pROC::auc(testProbs$Outcome,testProbs$probs2),3)
+auc3 <- round(pROC::auc(testProbs$Outcome,testProbs$probs3),3)
 
 ggplot(testProbs) +
   geom_roc(aes(d = as.numeric(Outcome), m = probs1, colour = "Model 1"),n.cuts = 50, labels = FALSE) +
   geom_roc(aes(d = as.numeric(Outcome), m = probs2, colour = "Model 2"),n.cuts = 50, labels = FALSE) +
   geom_roc(aes(d = as.numeric(Outcome), m = probs3, colour = "Model 3"),n.cuts = 50, labels = FALSE) +
+  annotate("text", x = 0.1, y = 1, label=paste("Model 1 AUC: ",as.character(auc1)),color='#E4002B')+
+  annotate("text", x = 0.1, y = 0.95, label=paste("Model 2 AUC: ",as.character(auc2)),color='#41B6E6')+
+  annotate("text", x = 0.1, y = 0.90, label=paste("Model 3 AUC: ",as.character(auc3)),color='#21bf01')+
   scale_color_manual(values = c("#E4002B","#41B6E6","#21bf01"),name="Model")+
   style_roc(theme = theme_grey) +
   geom_abline(slope = 1, intercept = 0, size = 1, color = 'grey60') +
-  labs(title = "ROC Curve - Housing Subsidy Model")+
+  labs(title = "ROC Curves for Three Restaurant Inspection Models")+
   theme_bw()
 ```
 
-## Model Results
+# Model Results
 
-## Density
+## Predicted Probability Density
+
+The density plots below show the density of predicted probabilities for restaurants in the Test dataset that passed inspection and restaurants that failed inspections. The predicted probabilities of failing inspection for almost all points in the test dataset are under 0.50. This indicates that there is generally a high level of uncertainty on if a restaurant will pass inspection. 
+
+However, a positive sign is that the peak of the predicted probability density curve for restaurants that fail inspection is higher than for restaurants that pass inspection. The most frequent predicted fail probability for restaurants that actually failed inspection is approximately 0.3. On the other hand, the most frequent fail probability fo restaurants that passed inspection is approximately 0.22.
 
 ```{r density_chart, fig.width=10}
 
@@ -699,10 +712,30 @@ ggplot(testProbs, aes(x = probs3, fill = as.factor(Outcome))) +
   theme(strip.text.x = element_text(size = 18),
         legend.position = "none")+
   theme_bw()
+```
 
+The table below show the median predicted fail probability for restaurants that pass inspection and restaurants that failed inspection. The median predicted fail probability for restaurants that fail inspection is higher than restaurants that passed inspection.
+
+``` {r median_probability}
+testProbs %>%
+  group_by(Outcome) %>% summarise(median_probs=median(probs3)) %>%
+  cbind(.,Outcome2=c('Pass','Fail')) %>%
+  dplyr::select(Outcome2,median_probs) %>%
+  kbl(col.names=c('Outcome','Median Predicted Fail Probability')) %>%
+  kable_minimal()
 ```
 
 # Sensitivity and Specificty Table
+
+A key component of using a logistic regression is selecting a threshold. Restaurants which are above this threshold are considered to have a high risk of failing inspection and would be the target of the restaurant improvement program. The table below presents three different accuracy metrics for different probability thresholds using our test dataset. 
+
+The three accuracy measures are:
+
+* **Sensitivity:** The % of restaurants which are predicted to fail / The number of restaurants that actually failed
+* **Specificity:** The % of restaurants which are predicted to pass / The number of restaurants that actually passed
+* **Accuracy:** The % of restaurants which are correctly predicted / the total number of restaurants
+
+The table also included the number of restaurants that are predicted to fail at each restaurants (i.e: the number of restaurants with a probability of failing above the threshold). We can see that there are trade offs when selecting a threshold, when using a lower threshold the specificity tends to increase while the sensitivity and accuracy declines. We choose 0.3 as the optimal threshold - at this threshold we have an accuracy rate which is still well above 50% and identify 746 as at risk of failing inspection which is a reasonable number of restaurants to target for the restaurant improvement program. 
 
 ```{r, sens_spec_table}
 
@@ -723,9 +756,11 @@ for (t in tresholds){
 
 cbind(tresholds,sensitivity,specificity,accuracy,pred_fail) %>%
   as_data_frame() %>%
-  kbl(col.names = c("Treshold",'Sensitivity (%)','Specificity (%)', 'Accuracy (%)', 'Predicted Failures')) %>%
+  kbl(col.names = c("Threshold",'Sensitivity (%)','Specificity (%)', 'Accuracy (%)', 'Predicted Failures')) %>%
   kable_classic_2()
 ```
+
+Here we examine the confusion matrix for the test dataset for our selected model (i.e: Model 3) at the selected thresholds (0.3). The confusion matrix compares our predictions to the actual outcome. In the confusion matrix, the value in the top left corner represents cases where we correctly predicted a restaurant would pass inspection. The value in the bottom right corner indicates the number of restaurants we correctly predicted as passing inspection.  The value in the top right corner, indicates the number of restaurants we predicted as Failing but actually passed inspection (i.e: false negatives). The value in the bottom left corner indicates the number restaurants we predicted to fail but actually passed (i.e: false positives). When using the 0.3 threshold our model miss classifies 491 restaurants as failing inspection.
 
 ```{r confusion_matrix}
 
