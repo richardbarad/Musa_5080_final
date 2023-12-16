@@ -1,16 +1,16 @@
 /* Whole document: */
 body{
-  font-size: 12.5pt;
+  font-size: 11pt;
 }
 /* Headers */
 h1,h2,h3,h4,h5,h6{
-  font-size: 24pt;
+  font-size: 22pt;
 }
 /* SubHeaders */
 h2,h3,h4,h5,h6{
-  font-size: 20pt;
+  font-size: 18pt;
 }
 /* SubHeaders */
 h3,h4,h5,h6{
-  font-size: 18pt;
+  font-size: 15pt;
 }

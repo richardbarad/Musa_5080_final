@@ -1,7 +1,5 @@
 ---
-title: "MUSA_Final"
-author: "Richard Barad"
-date: "2023-12-04"
+title: "Forecasting Food Inspections in Chicago"
 output:
   html_document:
     keep_md: yes
@@ -9,12 +7,19 @@ output:
     theme: flatly
     toc_float: yes
     code_folding: hide
-    number_sections: no
+    number_sections: yes
     css: style.css
 ---
 
-```{r clear_environment, include=FALSE}
+<br>
 
+**Contributors: Alec Jacobs & Richard Barad | 12.15.2023**
+
+Course: Public Policy Analytics, Master of Urban Spatial Analytics
+
+<br>
+
+```{r clear_environment, include=FALSE}
 # Lists All Of The Objects In The Work Space
 rm(list=ls())
 ```
@@ -44,35 +49,40 @@ library(matchmaker) #Use a dictionary to match and replace values
 library(corrr) #For correlation Matrix
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+census_api_key("4b917a3ebce557bc497aebb5aba1b04f0ff9c5ba", overwrite = TRUE)
 ```
+
+
+For an abbreviated high level summary of this analysis please watch our video published to [YouTube](https://www.youtube.com/watch?v=iuQI3AI7vw4).
 
 # Context
 
 The City of Chicago is the third most populated metropolitan area in the United States, boasting a robust culinary landscape with over 15,000 restaurants. Each of the city’s restaurants are subject to a recurring inspection, conducted under the purview of the Department of Public Health’s Division of Food Protection. The task of inspection falls on only 36 accredited sanitarians – leaving each with the responsibility of inspecting around 470 of the 15,000. This resource disparity presents a notable challenge to efficient and effective food safety monitoring.
 
-Addressing resource disparity, Chicago’s solution includes leveraging data and partnering the city's Department of Health with the Advanced Analytics Team housed in the Department of Innovation and Technology. Together, they developed a predictive model aimed at identifying restaurants most likely to have critical food safety violations. The existing model combines historical data, encompassing details from 100,000 past sanitation inspections – along with business characteristics and 311 complaints. The model enables inspectors to prioritize their inspections, concentrating on areas of the greatest risk to fail future food inspections.
+Addressing resource disparity, Chicago’s solution includes leveraging data and partnering the city's Department of Health with the Advanced Analytics Team housed in the Department of Innovation and Technology. Together, they developed a [predictive model](https://chicago.github.io/food-inspections-evaluation/) aimed at identifying restaurants most likely to have critical food safety violations. The existing model combines historical data, encompassing details from 100,000 past sanitation inspections – along with business characteristics and 311 complaints. The model enables inspectors to prioritize their inspections, concentrating on areas of the greatest risk to fail future food inspections.
 
 The model’s implementation has yielded positive results harnessed by the city of Chicago. Food establishments with critical violations are now more likely to be identified earlier, leading to faster interventions and ultimately creating a increased quality along with availability of dining for Chicago residents. Adopting a more “science-based” initiative highlights the potential of data analytics to enhance public health and economic outcomes, particularly in city governments with limited resources.
 
 # Motivation
 
-Recently, the City of Chicago launched a program through its Department of Public Health and Office of Food Protection, allocating money to a Local Restaurant Improvement Fund. The city aims to appropriate funding resources to establishments facing elevated probability of non-compliance with food safety standards set by the Food Protection Division. As mentioned, on a yearly basis, all retail food establishments throughout Chicago are subject to recurring inspection – aimed at ensuring the quality and safety of food intended for public consumption.
+This project is based on a hypothetical scenario in which the City of Chicago has launched a program through its Department of Public Health and Office of Food Protection, allocating money to a Local Restaurant Improvement Fund. The city aims to appropriate funding resources to establishments facing elevated probability of non-compliance with food safety standards set by the Food Protection Division. Restaurants that receive this funding would be reminded of the importance of complying with public health guidelines and passing food inspections. As mentioned, on a yearly basis, all retail food establishments throughout Chicago are subject to recurring inspections. If a restaurant that has received funding is found to be in violation of public health guidelines, it would no longer be eligible for financial support through the program. 
 
-Building on the city's previous work in predictive modeling, we have developed a supplementary forecasting tool tailored to predict a restaurant's likelihood of failing food inspections. This undertaking represents a departure from the conventional procedures common throughout the nation, adopting the more "science-based" methodology employed by the city. However, unlike the city's current use of their predictive model, our model looks to specifically inform the deployment of funds contingent on the forecast of health inspections - harnessing predictive analytics to identify restaurants with an increased susceptibility to regulatory infractions. Our objective is clear: to optimize the impact of the allocated financial resources by strategically directing them towards establishments deemed most at risk of failing food inspections.
+Building on the city's previous work in predictive modeling, we have developed a supplementary forecasting tool tailored to predict a restaurant's likelihood of failing food inspections during the upcoming year. Our model uses logistic regression to provide a one year forecast on the probability that a given restaurant will fail an inspection during the upcoming year. We train our model using restaurant inspection data for 2021, and divide the dataset into a training and test dataset. The training dataset is used to build the model and the test dataset is used to examine the accuracy of model predictions. This undertaking represents a departure from the conventional procedures common throughout the nation, in favor of a "science-based" methodology employed by the city. However, unlike the city's current use of their predictive model, our model looks to specifically inform the deployment of funds contingent on passing health inspections. We harness predictive analytics to identify restaurants with an increased susceptibility to regulatory infractions. Our objective is clear: to optimize the impact of the allocated financial resources by strategically directing them towards establishments deemed most at risk of failing food inspections during the upcoming year.
 
 The selected restaurants are set to receive financial support, and profit not only monetarily but benefit by engaging in an educational discourse on the importance of passing food inspections. The eligibility for funding hinges on adhering to food quality standards year after year, reinforcing the commitment to maintaining the restaurant's quality. If, however, the establishment falls short of the city's benchmarks, they face the halting of financial support of the city - a harsh reminder of the health standards set in place. Our proposed initiative, thus, unfolds as a structured and strategic intervention, positioning itself as a proactive mechanism for fostering restaurant quality and elevating the overall quality of restaurant offerings throughout the city of Chicago.
 
 # Application
 
-To support the coordinated efforts regarding the restaurant improvement program informed by the predictive modeling, we propose a web-based application. The key features we envision include a heat map, a list of restaurant predictors along with corresponding information, a probability or confidence level toggle section, and supporting search and export features. The web-based application would also be translated into a smartphone format – one that may be more translatable to additional stakeholders outside of the city's decision-makers relating to the Local Restaurant Improvement Fund. The smartphone format would contain the same elements as the browser-based application and will provide a clear direction concerning the funding program. 
+To support the coordinated efforts regarding the restaurant improvement program informed by the predictive modeling, we propose a web-based application to share the model outputs. The key features we envision include a heat map showing where restaurants are predicted to fail inspections, a list of restaurant predictors along with corresponding information for each restaurant, a probability or confidence level toggle section, and supporting search and export features. The web-based application would also be translated into a smartphone format – one that may be more translatable to additional stakeholders outside of the city's decision-makers relating to the Local Restaurant Improvement Fund. The smartphone format would contain the same elements as the browser-based application and will provide a clear direction concerning the funding program. 
 
-Upon thoroughly validating and testing our predictive model for desired outcomes, we intend to proceed with the implementation stage . This stage would involve operationalizing the web-based application with support from a software developer for a seamless and scalable launch. We will first conduct a preliminary beta test with the city of Chicago to gather real-world feedback, and then prepare a full rollout strategy after initial the testing is complete. Developing an effective rollout strategy is crucial for the app's deployment, and we remain committed to continually refine the application based on valuable insights gathered through current inspection data used in our predictve forecasting model.
+Upon thoroughly validating and testing our predictive model for desired outcomes, we intend to proceed with the implementation stage. This stage would involve operationalizing the web-based application with support from a software developer for a seamless and scalable launch. We will first run the model to develop predictions for the upcoming year and conduct a preliminary beta test with the city of Chicago to gather real-world feedback, and then prepare a full roll out strategy after initial testing is complete. Developing an effective rollout strategy is crucial for the app's deployment, and we remain committed to continually refine the application based on valuable insights gathered through current inspection data used in our predictive forecasting model.
 
 # Import Data
 
 ## Import Inspection Data 
 
-We begin building our predictive model by importing food inspection data from the City of Chicago, covering all records since our analysis focuses on historical failures. The provided information originates from assessments conducted on restaurants and food establishments in Chicago from January 1, 2010 to present. These inspections are carried out by personnel from the Chicago Department of Public Health’s Food Protection Program. Subsequently, the results are entered into a database for approval by a State of Illinois Licensed Environmental Health Practitioner. After importing the data on food inspections, we clean and stardardize the business names along with the facility types. Our selectiveness ensures the predictive model will be built on the types of restaurants/facilities we are trying to target for the Local Restaurant Improvement Fund.
+We begin building our predictive model by importing food inspection data from the city of Chicago, covering all records since our analysis focuses on historical failures. The provided information originates from assessments conducted on restaurants and food establishments in Chicago from January 1, 2010 to present. These inspections are carried out by personnel from the Chicago Department of Public Health’s Food Protection Program. Subsequently, the results are entered into a database for approval by a State of Illinois Licensed Environmental Health Practitioner. After importing the data on food inspections, we clean and standardize the business names along with the facility types. Our selectiveness ensures the predictive model will be built on the types of establishments (i.e: Restaurants, Bakeries, and Coffee Shops) we are trying to target for the Local Restaurant Improvement Fund.
 
 ```{r read_data, cache=TRUE}
 
@@ -103,7 +113,9 @@ data$dba_name[grepl("SEE THRU CHINESE", data$dba_name)] <- 'SEE THRU CHINESE RES
 data$dba_name[grepl("JAMAICAN  GATES", data$dba_name)] <- 'JAMAICAN GATES'
 ```
 
-We download business licenses from the Chicago Data Portal. These licenses are issued by the Department of Business Affairs and Consumer Protection in the City of Chicago, covering the period from 2002 to the present. Next, we proceed with importing and cleaning the data on business licenses. The data retrieval encompasses all licenses issued since 2010, the year our analysis starts given the limitation that our inspection data does not extend beyond the last 10 years.
+## Import Business License Data
+
+We download business licenses from the Chicago Open Data Portal. These licenses are issued by the Department of Business Affairs and Consumer Protection in the City of Chicago, covering the period from 2002 to the present. Next, we proceed with importing and cleaning the data on business licenses. The data retrieval encompasses all licenses issued since 2010, the year our analysis starts given the limitation that our inspection data does not extend beyond the last 10 years. The business license data will be used to estimate the age of the restaurant.
 
 ```{r download_liscenses, cache=TRUE}
 
@@ -146,7 +158,7 @@ liscenses$doing_business_as_name[grepl("FRANCES' DELI & BRUNCHERY", liscenses$do
 
 ## Read Boundary Datasets
 
-We collect the spatial data for the neighborhoods and the overall city boundary of Chicago, preparing for our spatial analysis and upcoming visualizations. The boundaries of both the city and its neighborhoods were collected from the Chicago Data Portal. The neighborhoods shapefile is refined to include only the neighborhoods and geometry columns, while the city boundary is transformed to a common spatial reference system for compatibility.
+We collect the spatial data for the neighborhoods and the overall city boundary of Chicago, preparing for our spatial analysis and upcoming visualizations. The boundaries of both the city and its neighborhoods are obtained from the Chicago Data Portal. The neighborhood boundaries layer is refined to include only the neighborhoods and geometry columns, and both the neighborhoods and the city boundary are transformed to a common spatial reference system for compatibility with the other datasets that will be used in our analysis.
 
 ```{r neighboorhoods_data, results='hide', warning=FALSE}
 
@@ -161,12 +173,19 @@ chicagoboundary <-
 ```
 ## Census Data
 
-Wrangle and download census data on percent white population, percent poverty, and median rent by census block.
+We download census by block group for Chicago from the 2021 American Community Survey dataset for the following variables:
 
-Income in the Past 12 Months Below Poverty Level: Households are classified as poor when the total income of the householder's family in the last 12 months is below the appropriate poverty threshold.
+* Total Households with Income below poverty line
+* Total Households
+* Total Population
+* Total White Population
+* Median Rent (USD)
+
+The dataset is cleaned and the geometries are transformed into the appropriate projected coordinate system. We use the household variables to calculate the percent of households in a census block that are below the poverty line. The percent poverty and median rent variables will be included as predictors in our model. Additionally, we calculate the percent of the population in a census tract that is white. This information is not included in our model, but will be used latter on to examine if model accuracy varies between majority white and majority non-white neighborhoods.
 
 
 ```{r census_data, results = 'hide',warning=FALSE, message=FALSE}
+
 variables = c("B17017_002", #Total Households w/ income below poverty line
               "B17017_001", #Total Households 
               "B02001_001", #Total Population
@@ -198,13 +217,16 @@ census_data <- get_acs("block group",
 
 ## Clean Inspections Dataset
 
-We build a training dataset involving filtering and cleaning the inspection data; joining neighborhoods, selecting restaurant types, and specifying a specific year - 2021. We also exclude the limited inspections conducted in the boundary housing the Chicago O'Hare International Airport. We then treat instances labeled as "Pass w/ Conditions" as equivalent to a regular "Pass," and conduct a spatial join with neighborhood data. The resulting cleaned dataset will be used to construct training datasets for the years 2021 and 2020, facilitating our following predictive modeling.
+The first step in building the dataset we use to train our model involves filtering and cleaning the inspection data. This process involves projecting the restaurant data into the appropriate coordinate system and selecting just facilities that match the types of businesses eligible for funding through the restaurant improvement program. We also exclude the inspections conducted in the boundary housing the Chicago O'Hare International Airport and inspections of restaurants located inside Midway International Airport. We treat instances labeled as "Pass w/ Conditions" as equivalent to a regular "Pass," and conduct a spatial join between the restaurants and neighborhood layer.
+
+We build two clean datasets, one for 2021 and another for 2020. The 2021 will be used for building our model while the 2020 dataset will be used to engineer features about restaurant inspection pass rates in the previous year. 
 
 ```{r training_data}
 
 filter <- c("Restaurant","Bakery","Tavern","Ice Cream Shop","Deli","Cafe","Coffee Shop","")
 
 #Function to clean inspection data, join to neighboorhoods and filter to just the year of interest
+
 clean_inspections <- function(df,y){
   clean_df <- df %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
@@ -228,11 +250,13 @@ data_2020 <- clean_inspections(data,2020)
 ```
 
 
-## Determine Age of Restaurant
+## Determine Restaurant Age
 
-This code calculates the age of each business by referencing the date of its initial business license application. Specifically relating to retail establishments, it identifies the date when the license was first obtained. The minimum date is then joined back to the original license data and a subset of relevant columns is selected. The resulting age is estimated in days with a maximum age expected to be around 365 days. To enhance accuracy, our code attempts various join methods, as direct joining on the license number did not consistently yield matches. The time frame considered spans 11 years, reflecting the available license data from 2010 onward. This ensures that the analysis focuses on the relevant period up to the year 2021.
+This code calculates the age of each business by referencing the date of its initial business license application. Specifically relating to retail establishments, it identifies the date when the license was first obtained. The minimum date is then joined back to the original license data and a subset of relevant columns is selected. The resulting age is estimated in days with a maximum age expected to be around 4,380 days (i.e: 365 days x 12 years). 
 
-``` {r determine_age, warning=FALSE, message=FALSE, results='hide'}
+To enhance accuracy, our code attempts various join methods to join the business license to the inspection data, as direct joining on the license id did not consistently yield matches. The time frame considered spans 12 years, reflecting the available license data from 2010 onward. This ensures that the analysis focuses on the relevant period up to the year 2021. For roughly 6% of 2021 inspections it was not possible to determine the age of the restaurant - we set the age of these restaurants equal to the city wide median. The map below shows the results of our age analysis for restaurants included in the 2021 inspection dataset. 
+
+``` {r determine_age, warning=FALSE, message=FALSE}
 #For each for retail establishment determine date when a license was first obtained
 liscense_min <- liscenses %>% group_by(doing_business_as_name,address) %>% summarize(min_date = min(license_start_date)) %>%
   arrange(min_date)
@@ -252,17 +276,27 @@ data_2021_2 <- left_join(data_2021,liscenses_final %>% select(license_id,min_dat
   left_join(.,liscense_min %>% select(doing_business_as_name,address,min_date),by=join_by(aka_name==doing_business_as_name,address==address),multiple='first') %>%
   rename(min_date3 = 'min_date') %>%
   mutate(min_date = pmin(min_date1, min_date2, min_date3, na.rm = TRUE), #Select lowest date where multiple joins worked
-         age = as.integer(difftime(inspection_date, min_date, units = 'days')))
+         age = as.integer(difftime(inspection_date, min_date, units = 'days'))) %>%
+  select(-min_date1,-min_date2,-min_date3)
 
 data_2021_2 <- data_2021_2 %>%
   mutate(age = ifelse(age<0,0,age),
          age = ifelse(is.na(age),median(age,na.rm=TRUE),age))
+
+ggplot() +
+  geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
+  geom_sf(data = data_2021_2, aes(color = age), size = 0.5) +
+  scale_color_viridis_c(name = "Age (Days)") +
+  labs(title = "Restaurant Age (Days)") +
+  theme_void()
   
 ```
 
-## Estimate Number of previous violations
+## Estimate Number of Previous Violations
 
-This code estimates the number of previous violations for each business within the dataset. It begins by filtering the data based on the condition that the year is earlier than 2021 and the outcome is defined as 'Fail'. We then group the dataset by business name and address, and the violations are counted. The results are then joined to the training data after being renamed. The purpose of this code is to provide an overview of the historical violation records associated with each business, helping us understand the full compliance history throughout the city of Chicago.
+This code estimates the number of previous violations for each business within the dataset. It begins by filtering the data based on the condition that the year is earlier than 2021 and the outcome is defined as 'Fail'. We then group the dataset by business name and address, and the violations are counted. The results are then joined to the 2021 inspection data after being renamed. The purpose of this code is to provide an overview of the historical violation records associated with each business, helping us understand the full compliance history throughout the city of Chicago. 
+
+We also use the age variable and the previous fail variable to calculate the number of failures per day open. This variable serves as an interaction term that considers both the age of the restaurant and the previous number of failures. The map below show the results of our previous inspection failure analysis for all restaurants in the 2021 inspection dataset. 
 
 ```{r estimate_failures}
 
@@ -278,13 +312,22 @@ data_2021_2 <- left_join(data_2021_2,fails,by=join_by(dba_name==dba_name,address
          fails_Per_day = replace_na(prev_fails/age,0),
          fails_Per_day =  ifelse(is.infinite(fails_Per_day), prev_fails, fails_Per_day))
 
+ggplot() +
+  geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
+  geom_sf(data = data_2021_2, aes(color = cut(prev_fails, breaks = c(-1, 0, 1, 2, 5, max(prev_fails, na.rm=TRUE)))), size = 0.3)+
+  scale_color_viridis_d(name = "# of Failures", labels = c('0','1','2','3-5', '>5'))+
+  labs(title = "Number of Previous Inspection Failures") +
+  theme_void()
+
 ```
 
 ## Join Census Data
 
-Here, we integrate census data into the training dataset through a spatial join, associating each restaurant record with corresponding census tract information. A calculation is performed on neighborhood-level statistics, including mean values for variables such as percent poverty, median rent, and percent non-white - organized by the neighborhoods. We handle cases where a restaurant lacks a specific census tract association by performing a left join, replacing missing values in the joined columns with the mean neighborhood statistics. In the end, each restaurant entry is supported with the census socioeconomic information, producing a more detailed analysis of its context within the surrounding demographic landscape of Chicago.
+Here, we integrate census data into the 2021 restaurant inspection dataset through a spatial join, associating each restaurant record with corresponding census block group information. A neighborhood level calculation is performed to determine the mean values for variables such as percent poverty, median rent, and percent non-white by neighborhood. Restaurants that lack a specific census block group association are assigned the mean value for the neighborhood the restaurant is located in. In the end, each restaurant entry is supported with the census socioeconomic information, producing a more detailed picture of demographic condition of the area surrounding each restaurant in our 2021 inspection dataset which will be used to build our model.
 
-```{r join_censu_data}
+The maps below shows the census information for the restaurants in the 2021 inspection dataset.
+
+```{r join_censu_data, fig.width=9.5, fig.height=4}
 data_2021_2 <- data_2021_2 %>%
   st_join(.,census_data,predicate = st_intersects)
 
@@ -298,9 +341,29 @@ data_2021_2 <- left_join(data_2021_2,means_neigh,by='pri_neigh') %>%
          pct_non_white = ifelse(is.na(pct_non_white.x),pct_non_white.y,pct_non_white.x)) %>%
   select(-ends_with('.x'),-ends_with('.y'))
 
+
+grid.arrange(ncol=2,
+  
+ggplot() +
+  geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
+  geom_sf(data = data_2021_2, aes(color = pct_poverty), size = 0.3) +
+  scale_color_viridis_c(name = "Percent Poverty")+
+  labs(title = "Percent of Households Below Poverty Line") +
+  theme_void(),
+
+ggplot() +
+  geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
+  geom_sf(data = data_2021_2, aes(color = Median_Rent), size = 0.3) +
+  scale_color_viridis_c(name = "Median Rent")+
+  labs(title = "Median Rent in USD") +
+  theme_void()
+)
+
 ```
 
-## Exploratory Analysis
+# Exploratory Analysis
+
+This map illustrates the outcomes of food inspections in 2021, which will serve as the training data for our model. Notably, a concentration of inspection points is observed in and around the Loop, as well as along traffic corridors. The spatial distribution reveals clear clustering in areas where inspection failures are prevalent.
 
 ```{r guick_map1, include = TRUE, fig.keep = "none"}
 
@@ -309,14 +372,17 @@ custom_colors <- c("Pass" = "#41B6E6", "Fail" = "#E4002B")
 
 ggplot() +
   geom_sf(data = neighboorhoods) +
-  geom_sf(data = data_2021, aes(color = results), size = 0.5) +
+  geom_sf(data = data_2021, aes(color = results), size = 0.3) +
   scale_color_manual(values = custom_colors) +
   theme_void()
 
 ```
-This map illustrates the outcomes of food inspections in 2021, which will serve as the training data for our model. Notably, a concentration of inspection points is observed in and around the Loop, as well as along traffic corridors. The spatial distribution reveals clear clustering in areas where inspection failures are prevalent.
+<center>
+![](Food Inspections PF_POINT.jpg){width=450px}
 
-![](Food Inspections PF_POINT.jpg)
+</center>
+
+This map depicts the percent of restaurants that pass inspections. Restaurants in Garfield Park, New City and Chinatown have the highest fail rates in the city. 
 
 ```{r guick_map2, include = TRUE, fig.keep = "none"}
 neigh_summ <- data_2021 %>% st_drop_geometry() %>%
@@ -335,11 +401,13 @@ ggplot() +
   scale_fill_distiller(palette = "Blues") +
   theme_void()
 ```
-This map depicts the percent of restaurants that pass inspections. Restaurants in Garfield Park, New City and Chinatown have the highest fail rates in the city. 
+<center>
+![](Food Inspections PP_CHOROPLETH.jpg){width=450px}
+</center>
+<br>
+In the figure below, we have display a stacked bar plot to illustrate the pass and fail rates across various neighborhoods throughout Chicago. The x-axis denotes different neighborhoods, the y-axis represents rates, and the bars are stacked to visually depict the distribution of pass and fail rates of food inspections in 2021. Notably, Riverdale, Millennium Park, and Jackson Park emerge as the neighborhoods with the highest percentage of pass rates in Chicago, while Garfield Park, Navy City, and Chinatown exhibit the largest percentage of fail rates for food inspections. Note: The pass/fail rates may not be completely representative since they can be influenced by the number of restaurants, or the lack thereof in Chicago's neighborhoods.
 
-![](Food Inspections PP_CHOROPLETH.jpg)
-
-```{r guick_chart, fig.width=14, fig.height=5}
+```{r guick_chart, fig.width=14, fig.height=6}
 
 neigh_summ %>%
   st_drop_geometry() %>%
@@ -348,20 +416,19 @@ neigh_summ %>%
   na.omit() %>%
   ggplot(aes(x = pri_neigh, y = rate, fill = pass)) +
   geom_bar(position = 'stack', stat = 'identity') +
-  scale_fill_manual(values = c("pct_pass" = "#41B6E6", "pct_fail" = "#E4002B")) + 
+  scale_fill_manual(values = c("pct_pass" = "#41B6E6", "pct_fail" = "#E4002B"),labels = c('Percent Fail','Percent Pass'),name='Pass/Fail Rate') + 
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(x = "Neighborhood", y = "Rate", fill = "Pass/Fail")
+  labs(title='2021 Pass/Fail Percentage Rates by Neighboorhood',x = "Neighborhood", y = "Percent", fill = "Pass/Fail")
 
 ```
 
-In the figure above, we have display a stacked bar plot to illustrate the pass and fail rates across various neighborhoods throughout Chicago. The x-axis denotes different neighborhoods, the y-axis represents rates, and the bars are stacked to visually depict the distribution of pass and fail rates of food inspections. Notably, Riverdale, Millennium Park, and Jackson Park emerge as the neighborhoods with the highest percentage of pass rates in Chicago, while Garfield Park, Navy City, and Chinatown exhibit the largest percentage of fail rates for food inspections. Note: The pass/fail rates may not be completely representative since they can be influenced by the number of restaurants, or the lack thereof in Chicago's neighborhoods.
 
 # Knearest Neighboor Analysis
 
 ## 311 Datasets
 
-We obtain sanitation complaint and rodent-baiting data from the City of Chicago. Following a cleaning and adjustment process, we are left with refined datasets. Subsequently, we will use these spatially transformed 311 service request datasets for further analysis, particularly in connection to inspections.
+We obtain sanitation complaint and rodent-baiting data from the City of Chicago Open Data Portal for 2020. We use data for the previous year, because future implementation of the model will require using 311 data for the previous year since data for the current year will not yet be available. Duplicates are removed from the dataset and any data points without geometries are also removed. We also project the data into the appropriate projected coordinate system for Chicago. 
 
 ```{r get_lots_311, cache=TRUE}
 
@@ -384,7 +451,7 @@ sanitation2 <- clean_311(sanitation)
 rodents2 <- clean_311(rodents)
 ```
 
-Below, we have created a two-panel mapping visualization illustrating both the point distribution and density of sanitation complaints. In the left panel, a choropleth map is generated by overlaying sanitation service request data onto the boundaries of Chicago. The sanitation points are highlighted in blue, offering a spatial representation of sanitation code complaints across the city. The right visualization is a density map that shows the distribution of sanitation code complaints using kernel density estimation. This map utilizes a color gradient to depict varying density levels, with cooler colors indicating lower densities and warmer colors signifying higher concentrations. This dual-panel visualization displays the spatial distribution and density patterns of sanitation code complaints in Chicago, highlighting hotspots in the northern areas of Lake View and North Center, and in the southern parts featuring Greater Grand Crossing and Chatham.
+Below, we have created a two-panel mapping visualization illustrating both the point distribution and density of sanitation complaints. In the left panel, a point map is generated by overlaying sanitation service request data onto the boundaries of Chicago. The sanitation points are highlighted in blue, offering a spatial representation of sanitation code complaints across the city. The right visualization is a density map that shows the distribution of sanitation code complaints using kernel density. This map utilizes a color gradient to depict varying density levels, with cooler colors indicating lower densities and warmer colors signifying higher concentrations. This dual-panel visualization displays the spatial distribution and density patterns of sanitation code complaints in Chicago, highlighting hotspots in the northern areas of Lake View and North Center, and in the southern parts featuring Greater Grand Crossing and Chatham.
 
 ```{r complaints_visualized, fig.width=9.5, fig.height=4}
 
@@ -392,7 +459,7 @@ grid.arrange(
   ncol = 2,
 
   ggplot() + 
-    geom_sf(data = chicagoboundary, color = "white", fill = "grey80") +
+    geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
     geom_sf(data = sanitation2, colour = "#41B6E6", size = 0.1, show.legend = "point") +
     labs(title = "Sanitation Code Complaints") +
     theme_void(),
@@ -410,13 +477,13 @@ grid.arrange(
 
 ```
 
-Similar to mapping sanitation complaints, we again present the following dual-panel mapping visualization. Rather, here we focus in on rodent baiting service request data. The rodent baiting points are highlighted in blue, providing a visual representation of rodent-related service requests across the city. The right visualization features a density map that illustrates the distribution of rodent baiting incidents using kernel density estimation. This map employs a color gradient to convey varying density levels, with cooler hues representing lower densities and warmer tones indicating higher concentrations. The two visualizations illustrate the spatial distribution and density pattern of rodent baiting incidents in Chicago with notable hotspots identified in Logan Square, Avondale, North Center, and Lincoln Square.
+Similar to mapping sanitation complaints, we again present the following dual-panel mapping visualization focusing in on rodent baiting data. The rodent baiting points are highlighted in blue, providing a visual representation of rodent-related service requests across the city. The right visualization features a density map that illustrates the distribution of rodent baiting incidents using kernel density estimation. This map employs a color gradient to convey varying density levels, with cooler hues representing lower densities and warmer tones indicating higher concentrations. The two visualizations illustrate the spatial distribution and density pattern of rodent baiting incidents in Chicago with notable hotspots identified in Logan Square, Avondale, North Center, and Lincoln Square.
 
 ```{r baiting_visualized, fig.width=9.5, fig.height=4}
 grid.arrange(ncol=2,
 ggplot() + 
-  geom_sf(data = chicagoboundary, color = "white", fill = "grey80") +
-  geom_sf(data = rodents2, colour="#41B6E6", size=0.1, show.legend = "point") +
+  geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
+  geom_sf(data = rodents2, colour="#41B6E6", size=0.05, show.legend = "point") +
   labs(title= "Rodent Baiting")+
   theme_void(),
 
@@ -434,9 +501,10 @@ ggplot() +
 
 ## Theft Data
 
-Thirdly, same as with sanitation complaints and rodent baiting, we have generated a dual-panel mapping visualization showcasing both point distribution and density. This time, we utilized theft data obtained from the City of Chicago. We preprocessed the data to convert the 'date' column to a datetime format and extract the corresponding year, and filters out records with missing longitude or latitude values for spatial accuracy. The visualization methods used for both the point map and density maps align with those used in the previous panel visualizations. Upon analysis, this visualization reveals the spatial distribution and density patterns of theft in Chicago, emphasizing the notable concentration of theft in and around the Loop area.
+Thirdly, same as with sanitation complaints and rodent baiting, we have generated a dual-panel mapping visualization showcasing both point distribution and density for reported theft events. We utilize theft data obtained from the City of Chicago. We preprocessed the data to convert the 'date' column to a datetime format and extract the corresponding year, and filters out records with missing longitude or latitude values. The visualization methods used for both the point map and density maps align with those used in the previous panel visualizations. Upon analysis, we see a notable concentration of reported thefts in and around the Loop area.
 
-``` {r read_crime}
+``` {r thefts, fig.width=9.5, fig.height=4}
+
 thefts <- read.socrata('https://data.cityofchicago.org/resource/qzdf-xmn8.json?primary_type=THEFT') %>%
   mutate(created_date = ymd_hms(date),
          year = year(date)) %>%
@@ -444,15 +512,12 @@ thefts <- read.socrata('https://data.cityofchicago.org/resource/qzdf-xmn8.json?p
   dplyr::filter(!is.na(latitude)) %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant") %>%
   st_transform('ESRI:102271')
-```
-
-```{r thefts, fig.width=9.5, fig.height=4}
 
 grid.arrange(ncol=2,
 
 ggplot() + 
-  geom_sf(data = chicagoboundary, color = "white", fill = "grey80") +
-  geom_sf(data = thefts, colour="#41B6E6", size=0.1, show.legend = "point") +
+  geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
+  geom_sf(data = thefts, colour="#41B6E6", size=0.05, show.legend = "point") +
   labs(title= "Theft Events") +
   theme_void(),
 
@@ -466,7 +531,12 @@ ggplot() +
   labs(title = "Density of Theft Events") + 
   theme_void()+
   theme(legend.position = "none"))
+
 ```
+
+## Temporal and Nearest Neighboor Analysis
+
+In this code, we look at the percent of restaurants within 1km of each restaurant in the 2021 inspection dataset that failed an inspection in the year prior to our analysis (i.e: 2020). Building this variable, is based on principles of temporal lag, as we anticipate that areas that had a large percentage of restaurant failures in the previous year are likely to have a large percentage of restaurant failures again. Additionally, we also run a nearest neighbor analysis and calculate the average distance from each restaurant to the nearest 50 reported theft events, 50 sanitation complaints, and 50 rodent baiting events. 
 
 ```{r, nearest_neighboor_analysis, fig.width=9.5, fig.height=4}
 # Producing a Nearest Neighbor Analysis Between the 2021 Inspection Data and 2020 Sanitation Complaints and 2020 Rodent Reports
@@ -489,14 +559,20 @@ data_2021_2 <- data_2021_2 %>%
           thefts.nn = nn_function(st_coordinates(data_2021_2),st_coordinates(thefts),k = 50)) %>%
   left_join(.,rest_1000m, by = 'inspection_id') %>%
   left_join(.,neigh_summ %>%st_drop_geometry(), by = 'pri_neigh')
+```
 
+The map below shows the percent of restaurants within 1km of restaurants in the 2021 inspection dataset that failed inspection in the previous year. Restaurants in the area around the loop have a low percent failure rate. Restaurants in Auburn Gresham and Northwest Humbolt Park, and East Side have some of the highest percent failure rates for neighboring restaurants. 
+
+```{r, nearest_neighboor_analysis_map, fig.width=9.5, fig.height=4}
 ggplot() +
   geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
-  geom_sf(data = data_2021_2, aes(color = prev_year_pct_fail * 100), size = 0.5) +
+  geom_sf(data = data_2021_2, aes(color = prev_year_pct_fail * 100), size = 0.3) +
   scale_color_viridis_c(name = "Percent Failure") +
   labs(title = "Percent of Restaurants Within 1km That Failed in 2020") +
   theme_void()
 ```
+
+The maps below show the results of our k nearest neighbor analysis, the average distance from restaurants to the nearest 50 rodent baiting events, sanitation complaints, and theft events. Distance is calculated in meters. A log transformation is applied to the color gradient to account for the non-normal distribution of the data.  
 
 ```{r nn_maps, fig.width=10}
 my_breaks = c(50,100, 250, 500, 1000, 2000)
@@ -505,22 +581,22 @@ grid.arrange(ncol=3,
   
 ggplot() +
   geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
-  geom_sf(data = data_2021_2, aes(color = rodents.nn), size = 0.5) +
-  scale_color_viridis_c(name = "distance", trans = "log",breaks = my_breaks, labels = my_breaks)+
+  geom_sf(data = data_2021_2, aes(color = rodents.nn), size = 0.3) +
+  scale_color_viridis_c(name = "distance (m)", trans = "log",breaks = my_breaks, labels = my_breaks)+
   labs(title = "Rodent Complaint") +
   theme_void(),
 
 ggplot() +
   geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
-  geom_sf(data = data_2021_2, aes(color = sanitation.nn), size = 0.5) +
-  scale_color_viridis_c(name = "distance", trans = "log",breaks = my_breaks, labels = my_breaks)+
+  geom_sf(data = data_2021_2, aes(color = sanitation.nn), size = 0.3) +
+  scale_color_viridis_c(name = "distance (m)", trans = "log",breaks = my_breaks, labels = my_breaks)+
   labs(title = "Sanitation Complaint") +
   theme_void(),
 
 ggplot() +
   geom_sf(data = neighboorhoods, color = "white", fill = "grey80") +
-  geom_sf(data = data_2021_2, aes(color = thefts.nn), size = 0.5) +
-  scale_color_viridis_c(name = "distance", trans = "log",breaks = my_breaks, labels = my_breaks)+
+  geom_sf(data = data_2021_2, aes(color = thefts.nn), size = 0.3) +
+  scale_color_viridis_c(name = "distance (m)", trans = "log",breaks = my_breaks, labels = my_breaks)+
   labs(title = "Thefts") +
   theme_void())
 
@@ -528,7 +604,7 @@ ggplot() +
 
 # Explore Predictors
 
-Having identified the predictors which we plan to use to predict restaurant failures we can explore the data to determine if there is a difference between the mean value for restaurants that fail inspection and restaurants that pass inspection. Based on the plots below, we can conclude that restaurants that fail tend to have a higher age, a higher number of previous fails per year and a higher number of previous failures. Restaurants that fail also tend to be situated in areas with a lower median rent and higher percent of residents living in poverty. Restaurants that fail also tend to have a lower average distance to the nearest 50 theft event, 311 sanitation complaints, and 311 rodent complaints. 
+Having identified the predictors which we plan to use to predict restaurant failures we can explore the data to determine if there is a difference between the mean value for restaurants that fail inspection and restaurants that pass inspection. Based on the plots below, we can conclude that restaurants that fail tend to have a higher mean age, a lower mean number of previous fails per day open and a higher mean number of previous failures. Restaurants that fail also tend to be situated in census blocks with a lower mean median rent and higher mean percent of residents living in poverty. Additionally, Restaurants that fail also tend to have a lower mean average distance to the nearest 311 sanitation complaints and 311 rodent baiting events. The mean distance to the nearest 50 theft events is similar for restaurants that pass inspections and restaurants that fail inspections.  
 
 ```{r examine_means,fig.width=10,fig.height=4}
 
@@ -568,9 +644,7 @@ data_2021_2 %>% dplyr::select(quant_predictors,'results') %>% st_drop_geometry()
 
 ```
 
-## Means Table
-
-The table below shows the mean value for each predictor for restaurants that failed inspection an restaurants that passed inspection. The table also includes the results of a series of t-tests. T-tests can be used to determine if the mean values are statistically different from each other, and p-values that are less than 0.05 indicate that the mean value for restaurants that passed inspection and restaurants that failed each other are statistically different from each other. The difference in the mean is statistically significant for all predictors except for the age of the restaurant and the distance to nearest 50 reported theft events.  
+The table below shows the mean value for each predictor for restaurants that failed inspection and restaurants that passed inspection. The table also includes the results of a series of t-tests. T-tests can be used to determine if the mean values are statistically different from each other. P-values that are less than 0.05 indicate that the mean value for restaurants that passed inspection and restaurants that failed are statistically different from each other. The difference in the mean is statistically significant for all predictors except for the age of the restaurant, the distance to nearest 50 reported theft events, and failures per day open.
 
 ```{r table_means}
 
@@ -593,13 +667,14 @@ data_2021_2_means %>%
   cbind(.,p_values, variables_text=c('Age (days open)','Neighboorhood Decile (1-10)','Fails per day open','Median Rent (USD)','Percent Poverty','Previous Number of Fails','Percent of Restaurants Failing in previous Year within 1k buffer','Average Distance distance to nearest 50 rodent complaints (meters)','Average Distance to nearest 50 sanitation complaints (meters)','Average distance to nearest 50 reported thefts (meters)')) %>%
   dplyr::select(variables_text,Fail,Pass,p_values) %>%
   kbl(col.names=c('Variables','Fail (Mean)','Pass (Mean)','t-test (p-value)')) %>%
-  kable_classic_2()
+  kable_minimal() %>%
+  kable_styling(font_size = 12)
   
 ```
 
 ## Multicollinearity checks
 
-Next, we examine the correlation matrix for the predictors in our model. Checking the correlation is an important step because it allows us to determine if there is any severe multicollinearity between any of predictors. A logistic regression should not include variables that exhibit multicollinearity. We consider variables to be severe multicollinear if the r value is greater than 0.7 or less than -0.7. Based on the correlation matrix below we can conclude that is no severe  multicollinerity between our numeric predictors and they can all be safely included in our predictive model. 
+Next, we examine the correlation matrix for the predictors in our model. Checking the correlation matrix is an important step because it allows us to determine if there is any severe multicollinearity between any of predictors. A logistic regression should not include variables that exhibit multicollinearity. We consider variables to be severely multicollinear if the r value is greater than 0.7 or less than -0.7. Based on the correlation matrix below we can conclude that is no severe multicollinerity between our predictors and they can all be safely included in our predictive model. 
 
 ```{r correlation_matrix,warning=FALSE, message=FALSE}
 
@@ -613,11 +688,11 @@ data_2021_2 %>% dplyr::select(quant_predictors) %>%
 
 # Models
 
-Having identified our potential predictors, explored our data we now proceed to the modelling stage of our analysis. We develop three different models in order to compare the accuracy of models developed using different predictors. 
+We now proceed to the modelling stage of our analysis. We develop three different models in order to compare the accuracy of models developed using different predictors. 
 
 ## Split into Training and Test Data
 
-The dataset containing restaurants inspection results for 2021 is split into two parts. Seventy percent of the data is put into the training dataset which will be used to train the logistic models. Thirty percent of the data is placed in the test dataset. We will predict the inspection result for each of the data points in the test dataset and compare the predicted outcome to the actual outcomes to assess the model accuracy. 
+The dataset containing restaurants inspection results for 2021 and our feature engineered predictors is split into two parts. Seventy percent of the data is put into the training dataset which will be used to train the logistic regression models. Thirty percent of the data is placed in the test dataset. We will predict the inspection result for each of the data points in the test dataset and compare the predicted outcome to the actual outcomes to assess the model accuracy. 
 
 ```{r}
 
@@ -636,7 +711,7 @@ test  <- data_2021_2[-trainIndex,]
 
 ### Model 1
 
-Our first model includes the following predictors: Age of restaurant, previous number of fails, fails per year open, Median Rent of census block, percent poverty of census block, and the theft, rodent, and sanitation nearest neighbor variables. The table below shows the Beta Coefficient and p-value for each of the predictors in the model. Examining the p-value can help provide a sense of the predictive power of the variable. We decide to retain all variables because all variables have a p-value that is lower than 0.3. While some of the p-value are not statistically significant they do appear to be adding some predictive power to the model.   
+Our first model includes the following predictors: Age of restaurant, previous number of fails, fails per day open, Median Rent of census block, percent poverty of census block, and the theft, rodent, and sanitation nearest neighbor variables. The table below shows the Beta Coefficient and p-value for each of the predictors in the model. Examining the p-value can help provide a sense of the predictive power of the variable. We decide to retain all variables because all variables have a p-value that is lower than 0.3. While some of the p-values are not statistically significant they do appear to be adding some predictive power to the model.   
 
 ``` {r make_model1}
 model1 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + fails_Per_day,
@@ -650,7 +725,7 @@ summary(model1)$coefficients[, c('Estimate','Pr(>|z|)')] %>%
 
 ### Model 2
 
-In our second model, we include all the same variable as model one. We also add the variable that indicates that percent of restaurants within 1 kilometer that failed inspections in the previous year as a predictor (i.e: prev_year_pct_fail). The Beta Coefficients and p-values for Model 2 are shown below. The prev_year_pct_fail has a low value so we decide to retain it in model 3. 
+In our second model, we include all the same variables as model one. We also add the variable that indicates that percent of restaurants within 1 kilometer that failed inspections in the previous year as a predictor (i.e: prev_year_pct_fail). The Beta Coefficients and p-values for Model 2 are shown below. The prev_year_pct_fail has a low p-value so we decide to retain it in model 3. 
 
 ```{r make_model2}
 model2 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail + fails_Per_day,
@@ -665,7 +740,7 @@ summary(model2)$coefficients[, c('Estimate','Pr(>|z|)')] %>%
 
 ### Model 3
 
-Model three includes all the same predictors as model two but we also include the decile associated with the failure rate of the neighborhood the restaurant is located in. The predictive power of the decile variable is very high as noted by p-value which is close to 0. 
+Model three includes all the same predictors as model two but we also include the decile associated with the failure rate of the neighborhood the restaurant is located in. The predictive power of the decile variable is very high as noted by the high beta coefficient and the p-value which is close to 0. 
 
 ```{r make_model3}
 model3 <- glm(fail ~ age + prev_fails + Median_Rent + rodents.nn + sanitation.nn + thefts.nn + pct_poverty + prev_year_pct_fail + decile + fails_Per_day,
@@ -693,16 +768,16 @@ testProbs <- data.frame(inspection_id = test$inspection_id,
 
 ## ROC Curves
 
-In order to select which of the three models to use we examine the ROC curve for each of the models. Each of the logistic regression models outputs a probability indicting the likelihood that a restaurant will pass an inspection. Probabilities are produced for each restaurant in the test dataset for each model. 
+Each of the logistic regression models outputs a probability indicting the likelihood that a restaurant will pass an inspection. Probabilities are produced for each restaurant in the test dataset for each model. 
 
-We will use a receiver operating characteristic curve to assess the overall fit of each model. In our ROC curves we plot the false positive fraction (i.e: percent of Passes incorrectly predicted) and True positive fraction (I.e: percent of passes correctly predicted) at fifty different thresholds. The ROC curves helps show the trade offs in a logistic regression analysis. If we select a lower thresholds, the model will correctly predict more restaurant failures (i.e: the true positive fraction will be high). However, when a low threshold is used the model will likely incorrectly predict many restaurants as failing inspections that actually would pass inspection (i.e: the false positive rate will also be high).
+We will use a receiver operating characteristic curve (ROC) to assess the overall fit of each model. In our ROC curves we plot the false positive fraction (i.e: percent of Passes incorrectly predicted) and True positive fraction (i.e: percent of passes correctly predicted) at fifty different thresholds. The ROC curves help show the trade offs in a logistic regression analysis. If we select a lower thresholds, the model will correctly predict more restaurant failures (i.e: the true positive fraction will be high). However, when a low threshold is used the model will also likely incorrectly predict many restaurants as failing inspections that actually would pass inspection (i.e: the false positive rate will also be high).
 
-All three models are a step above selecting restaurants at random. The grey line shown below shows what an ROC curve would look like if restaurants were selected randomly for the program. 
+All three models are a step above selecting restaurants at random. The grey line shown below shows what an ROC curve would look like if restaurants were selected randomly for the restaurant improvement program. 
 
-A useful way to compare the fit of the different logistic regression models is to calculate the Area Under (AUC) for each of the ROC curves. ROC curves that have a higher AUC have a better fit. The AUC values are visible in top right hand corner of the ROC plot. Model three has the highest AUC of the three models. Moving forward, we will only present results for Model 3. 
+A useful way to compare the fit of the different logistic regression models is to calculate the Area Under (AUC) metric for each of the ROC curves. ROC curves that have a higher AUC have a better fit. The AUC values are visible in top left hand corner of the ROC plot. Model three has the highest AUC of the three models. Moving forward, we will only present results for Model 3. 
 
 ```{r roc_curve, warning = FALSE, message = FALSE}
-# Need to add anoitation of area under curve
+
 auc1 <- round(pROC::auc(testProbs$Outcome,testProbs$probs1),3)
 auc2 <- round(pROC::auc(testProbs$Outcome,testProbs$probs2),3)
 auc3 <- round(pROC::auc(testProbs$Outcome,testProbs$probs3),3)
@@ -725,7 +800,7 @@ ggplot(testProbs) +
 
 ## Predicted Probability Density
 
-The density plots below show the density of predicted probabilities for restaurants in the Test dataset that passed inspection and restaurants that failed inspections. The predicted probabilities of failing inspection for almost all points in the test dataset are under 0.50. This indicates that there is generally a high level of uncertainty on if a restaurant will pass inspection. 
+The density plots below show the density of predicted probabilities for restaurants in the test dataset that passed inspection and restaurants that failed inspections based on model three. The predicted probabilities of failing inspection for almost all points in the test dataset are under 0.50. This indicates that there is generally a high level of uncertainty on if a restaurant will pass inspection. 
 
 However, a positive sign is that the peak of the predicted probability density curve for restaurants that fail inspection is higher than for restaurants that pass inspection. The most frequent predicted fail probability for restaurants that actually failed inspection is approximately 0.3. On the other hand, the most frequent fail probability for restaurants that passed inspection is approximately 0.22.
 
@@ -754,9 +829,9 @@ testProbs %>%
   kable_minimal()
 ```
 
-## Treshold Selection
+## Threshold Selection
 
-A key component of using a logistic regression is selecting a threshold. Restaurants which are above this threshold are considered to have a high risk of failing inspection and would be the target of the restaurant improvement program. The table below presents three different accuracy metrics for different probability thresholds using our test dataset. 
+A key component of using a logistic regression is selecting a threshold. Restaurants which are above this threshold are considered to have a high risk of failing inspection and would be the target of the restaurant improvement program. The table below presents three different accuracy metrics for different probability thresholds using the predictions in our test dataset. 
 
 The three accuracy measures are:
 
@@ -764,7 +839,7 @@ The three accuracy measures are:
 * **Specificity:** The % of restaurants which are predicted to pass / The number of restaurants that actually passed
 * **Accuracy:** The % of restaurants which are correctly predicted / the total number of restaurants
 
-The table also included the number of restaurants that are predicted to fail at each restaurants (i.e: the number of restaurants with a probability of failing above the threshold). We can see that there are trade offs when selecting a threshold, when using a lower threshold the specificity tends to increase while the sensitivity and accuracy declines. We choose 0.3 as the optimal threshold - at this threshold we have an accuracy rate which is still well above 50% and identify 746 as at risk of failing inspection which is a reasonable number of restaurants to target for the restaurant improvement program. 
+The table below also includes the number of restaurants that are predicted to fail at each threshold (i.e: the number of restaurants with a fail probability above the threshold). We can see that there are trade offs when selecting a threshold, when using a lower threshold the specificity tends to increase while the sensitivity and accuracy decline. We choose 0.3 as the optimal threshold - at this threshold we have an accuracy rate which is still well above 50% and identify 746 restaurants as at risk of failing inspection which is a reasonable number of restaurants to target for the restaurant improvement program. 
 
 ```{r, sens_spec_table}
 
@@ -785,13 +860,13 @@ for (t in tresholds){
 
 cbind(tresholds,sensitivity,specificity,accuracy,pred_fail) %>%
   as_data_frame() %>%
-  mutate(across(where(is.numeric), round, 2)) %>%
+  mutate(across(where(is.numeric), ~ round(., 2))) %>%
   kbl(col.names = c("Threshold",'Sensitivity (%)','Specificity (%)', 'Accuracy (%)', 'Predicted Failures')) %>%
   kable_paper() %>%
   row_spec(5, bold = T, background = "lightgreen")
 ```
 
-Here we examine the confusion matrix for the test dataset for our selected model (i.e: Model 3) at the selected thresholds (0.3). The confusion matrix compares our predictions to the actual outcomes. In the confusion matrix, the value in the top left corner represents cases where we correctly predicted a restaurant would pass inspection. The value in the bottom right corner indicates the number of restaurants we correctly predicted as passing inspection.  The value in the top right corner, indicates the number of restaurants we predicted as Failing but actually passed inspection (i.e: false negatives). The value in the bottom left corner indicates the number restaurants we predicted to fail but actually passed (i.e: false positives). When using the 0.3 threshold our model miss classifies 491 restaurants as failing inspection.
+Here, we examine the confusion matrix for the test dataset predictions for our selected model (i.e: Model 3) at the selected thresholds (0.3). The confusion matrix compares our predictions to the actual outcomes. In the confusion matrix, the value in the top left corner represents cases where we correctly predicted a restaurant would pass inspection. The value in the bottom right corner indicates the number of restaurants we correctly predicted as passing inspection. The value in the top right corner, indicates the number of restaurants we predicted as Failing but actually passed inspection (i.e: false negatives). The value in the bottom left corner indicates the number of restaurants we predicted to fail that actually passed (i.e: false positives). When using the 0.3 threshold, our model miss classifies 491 restaurants as failing inspections and correctly classifies 255 restaurants resulting in a sensitivity of 34.18%.
 
 ```{r confusion_matrix}
 
@@ -805,18 +880,18 @@ confusematrix$table %>%
   mutate(Total = Pass + Fail,
          Prediction = c('Pass','Fail')) %>%
   kbl() %>%
-  add_header_above(header=c(" " = 1,"Actual" = 3)) %>%
+  add_header_above(header=c(" " = 1,"Actual" = 2," " = 1)) %>%
   kable_minimal()
 
 ```
 
-# Model Generlizability
+# Model Generalizability
 
 ## Cross Validation
 
-We also run a cross validation for our chosen model and threshold combination. The cross validation helps us understand if the model is generlizable to different data. A cross validation involves running the model multiple times while changing the data points which are included in the training and test datasets. We run a 50-fold cross validation and examine compare the predicted outcomes to the actual outcome in each of the 50 test datasets and calculate the sensitivity, specificty, accuracy, an area under the curve metrics are calculated for each fold. 
+We also run a cross validation for our chosen model and threshold combination. The cross validation helps us understand if the model is generalizable to different data. A cross validation involves running the model multiple times while changing the data points which are included in the training and test datasets. We run a 50-fold cross validation using the 2021 inspection data and compare the predicted outcomes to the actual outcome in each of the 50 test datasets and calculate the sensitivity, specificty, accuracy, and area under the curve metrics for each fold. 
 
-In the figure below shows the distribution of AUC, sensitvity, specificity, and accuracy across the 100 folds. Sensitivity, Specificity, and Accuracy are again calculated using the 0.3 probability threshold. The model generalizes well according to the specificity and accuracy outcomes, as indicated by the limited variability in the range of outcomes. However, the sensitivity (i.e: percent of failures correctly predicted) has a wider spread of outcomes across the different folds. Understanding this variation in the models ability to accurately predict restaurant failures is a key limitation which will be important for the restaurant improvement program to understand. In the next section, we will try to identify geographic areas where the model performance is poor. 
+The figure below shows the distribution of the AUC, sensitivity, specificity, and accuracy across the 50 folds. Sensitivity, specificity, and accuracy are again calculated using the 0.3 probability threshold. The model generalizes well according to the specificity and accuracy outcomes as indicated by the limited variability in the range of outcomes. However, the sensitivity (i.e: percent of failures correctly predicted) has a wider spread of outcomes across the different folds. Understanding this variation in the models ability to accurately predict restaurant failures is a key limitation which will be important for the restaurant improvement program to understand. In the next section, we will try to identify geographic areas where the model performance is poor. 
 
 ```{r cross_validation, warning=FALSE,message=FALSE}
 
@@ -841,12 +916,13 @@ pred <- cvFit$pred %>%
                          pred == 'Pass' & obs == 'Fail' ~ 'FN')) %>%
   group_by(Resample,type) %>% tally %>%
   spread(key=type,value=n) %>%
-  mutate(Sensitvity = TP / (TP + FN),
+  mutate(Sensitivity = TP / (TP + FN),
          Specificity = TN / (FP + TN),
          Accuracy = (TP + TN) / (TP + TN + FP + FN)) %>%
   inner_join(.,cvFit$resample %>% dplyr::select(Resample,ROC),by='Resample') %>%
-  dplyr::select('Sensitvity','Specificity','Accuracy','ROC') %>%
-  pivot_longer(cols=c('Sensitvity','Specificity','Accuracy','ROC'),names_to='metric',values_to='value') %>%
+  dplyr::select('Sensitivity','Specificity','Accuracy','ROC') %>%
+  rename(Area_Under_Curve = 'ROC') %>%
+  pivot_longer(cols=c('Sensitivity','Specificity','Accuracy','Area_Under_Curve'),names_to='metric',values_to='value') %>%
   group_by(metric) %>%
   mutate(mean = mean(value))
 
@@ -855,7 +931,7 @@ ggplot(data=pred,aes(value)) +
   facet_wrap(~metric) +
   geom_vline(aes(xintercept = mean), colour = "#41B6E6", linetype = 3, size = 1.5) +
   scale_x_continuous(limits = c(0, 1)) +
-  labs(x="Goodness of Fit", y="Count", title="Cross Validation Model Fit Metrics",subtitle = "Across-fold mean reprented as dotted lines")+
+  labs(x="Goodness of Fit", y="Count", title="Histogram of Cross Validation Model Fit Metrics",subtitle = "Across-fold mean represented as dotted lines")+
   theme_bw()
 
 
@@ -863,11 +939,11 @@ ggplot(data=pred,aes(value)) +
 
 ## Accuracy by Neighboorhood
 
-The maps below show the Sensitvity, Specificty, and Accuracy of the model predictions for the initial test dataset by neighborhood. There are some key spatial patterns and trends in the results which are important for model users to understand. First, the Sensitivity in many neighborhoods is 0%. This means that in many parts of the city the model failed to accurately predict all restaurant failures when setting the threshold for a predicted failure at 0.3. Examples of neighborhoods where this is true include Grand Boulevard, United Center, Armour Square and Logan Square. The neighborhoods which have a sensitvity of 0% tend to have a specificity near 100%.
+The maps below show the sensitivity, specificity, and accuracy of the model predictions for the initial test dataset by neighborhood when using the 0.3 threshold. There are some key spatial patterns and trends in the results which are important for model users to understand. First, the sensitivity in many neighborhoods is 0%. This means that in many parts of the city the model failed to accurately predict all restaurant failures when setting the threshold for a predicted failure at 0.3. Examples of neighborhoods where this is true include Grand Boulevard, United Center, Armour Square and Logan Square. The neighborhoods which have a sensitivity of 0% tend to also have a specificity near 100%.
 
-Conversely, there are also neighborhoods where the specificity is 0% ans the sensitivity is near 100%. Examples of such neighborhoods include Chinatown, New City, Garfield Park and Washington Heights. These are the same neighborhoods which had high failure rates based on our exploratory analysis.
+Conversely, there are also neighborhoods where the specificity is 0% and the sensitivity is near 100%. Examples of such neighborhoods include Chinatown, New City, Garfield Park and Washington Heights. These are the same neighborhoods which had high failure rates based on our exploratory analysis.
 
-```{r sens_spec_neigh,fig.width=8}
+```{r sens_spec_neigh,fig.width=9.5, fig.height=4}
 accuracy_neigh <- testProbs %>%
   select(inspection_id,Outcome,probs3) %>%
   left_join(.,test %>% dplyr::select(pri_neigh,inspection_id),by='inspection_id') %>%
@@ -879,17 +955,17 @@ accuracy_neigh <- testProbs %>%
   group_by(pri_neigh,type) %>% tally() %>%
   spread(key=type,value=n) %>%
   replace(is.na(.), 0) %>%
-  mutate(Sensitvity = TP / (TP + FN),
+  mutate(Sensitivity = TP / (TP + FN),
          Specificity = TN / (FP + TN),
          Accuracy = (TP + TN) / (TP + TN + FP + FN)) %>%
-  select(Sensitvity,Specificity,Accuracy,pri_neigh) %>%
+  select(Sensitivity,Specificity,Accuracy,pri_neigh) %>%
   gather(accuracy_measure,value,-pri_neigh) %>%
   inner_join(neighboorhoods,.,by='pri_neigh')
   
   ggplot(data=accuracy_neigh)+
   geom_sf(aes(fill=value * 100))+
   facet_wrap(~accuracy_measure)+
-  scale_fill_viridis(option='rocket',name='Percentage')+
+  scale_fill_distiller(palette = 'Blues',name='Percentage',trans='reverse')+
   theme_bw()+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
@@ -903,9 +979,9 @@ accuracy_neigh <- testProbs %>%
 
 To better understand how sensitivity, specificity, and accuracy vary across different types of neighborhoods we group all neighborhoods in Chicago into four categories based on the restaurant inspection failure rate for restaurants in 2021. Each category contains the same number of neighborhoods. 
 
-Our predictions for restaurants in neighborhoods that have a very low or low historical failure rate exhibit a low sensitivity, high specificity, and high overall accuracy. The low sensitivity indicates that our model only accurately predicts 1.6% of restaurant failures in neighborhoods with a low historical failure. Because the number of failures is very small (approximately 8-12% of inspections in most neighborhoods) our accuracy is still high in these neighborhoods. 
+Our predictions for restaurants in neighborhoods that have a very low or low historical failure rate exhibit a low sensitivity, high specificity, and high overall accuracy. The low sensitivity indicates that our model only accurately predicts 1.6% of restaurant failures in neighborhoods with a low historical failures. Because the number of failures is very small (approximately 8-12% of inspections in most neighborhoods) our accuracy is still high in these neighborhoods. 
 
-Our predictions for restaurants in neighborhoods that have a high historical failure rate exhibit a high sensitivity and low specificity, and low overall accuracy. The low specificity indicates that our model only accurately predicts 21.71% of restaurants as passing inspections. A large number of restaurants that actually passed inspections are miss classified as failing inspections in neighboorhods with a high historical failure rate.
+Our predictions for restaurants in neighborhoods that have a high historical failure rate exhibit a high sensitivity and low specificity, and low overall accuracy. The low specificity indicates that our model only accurately predicts 21.71% of restaurants as passing inspections. A large number of restaurants that actually passed inspections are miss classified as failing inspections in neighborhoods with a high historical failure rate.
 
 ```{r sens_spec_neigh_type}
 
@@ -932,7 +1008,7 @@ testProbs %>%
 
 ## Accuracy by Race Context
 
-We also examine our model performance across different race contexts. We classify census tracts into majority white census tracts and majority non white census tracts and examine the accuracy, sensitivity, and specificity for predictions for restaurants in majority white and majority non white census tracts using our selected threshold of 0.3. The sensitivity is higher for restaurants in majority non-white areas and the specificity is lower. The lower specificity indicates that our selected model and threshold combination tends to overestimate the number of restaurant failures in non-white areas. Conversely, the low sensitivity in white areas indicates that the model misses a large percentage of restaurant failures in majority white area.
+We also examine our model performance across different race contexts. We classify census tracts into majority white census tracts and majority non white census tracts and examine the accuracy, sensitivity, and specificity for predictions for restaurants in majority white and majority non white census tracts using our selected threshold of 0.3. The sensitivity is higher for restaurants in majority non-white areas and the specificity is lower. The lower specificity our model and threshold combination tends to overestimate the number of restaurant failures in non-white areas. Conversely, the low sensitivity in white areas indicates that the model misses a large percentage of restaurant failures in majority white area.
 
 ```{r perforamnce_race}
 
@@ -957,3 +1033,13 @@ testProbs %>%
   kable_minimal()
 
 ```
+
+# Conclusions
+
+Overall we conclude that our model will help the city of Chicago identify locations for the restaurant improvement program, but should not be the only piece of information city decision makers rely on. We recommend that future work focus on selecting different optimized probability thresholds by neighborhood. In neighborhoods like Chinatown which have a high historical failure rate, it may make sense to select a threshold higher than 0.3. However, in neighborhoods that have a low historical failure rate, it may be appropriate to select a threshold that is lower than 0.3. 
+
+Additionally, a noted limitation of our model is that it is focused on spatial features. Unfortunately, limited data is available on internal characteristics of restaurants and its staff - data on these features could help improve the model. Examples of predictors that might help improve the model include square footage, kitchen size, number of customers, number of kitchen staff, and if the head chief attended culinary school. Access to this type of data could help improve the model and provide additional predictive power and will help better capture the non spatial drivers of restaurants failing inspections. In the absence of such data, one potential dataset which could be incorporated into the model is data from Yelp. Examples of variables from Yelp that could be incorporated include the number of stars the restaurant has and the type of restaurant - [preliminary analysis](https://medium.com/@michaelkduchak/predicting-chicago-health-inspection-failures-a9e01788b88e) conducted by Michael Duchak indicates that both these variables could help predict restaurant failures in Chicago.
+
+In terms of next steps, we recommend starting discussions with a software developer about exploring ways to show the model results in an interactive application. Additionally, the modeling team would like to explore developing optimized probability threshold cutoffs for each neighborhood while also exploring the possibility of incorporating data from Yelp into the model. The final model would then be used to predict restaurant failures in 2024, and data from 2023 should be used for the k nearest neighbor analysis and identifying the percent of restaurants within 1 kilometer that failed in the previous year. The predictions for 2024 could then help city decision makers decide what restaurants to target for the restaurant improvement program. 
+
+
